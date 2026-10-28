@@ -40,6 +40,13 @@ class SoundEngine {
     }
   }
 
+  public resumeAudio() {
+    this.initContext();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
   public setMuted(mute: boolean) {
     this.muted = mute;
     if (this.bgmMasterGain && this.ctx) {

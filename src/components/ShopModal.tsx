@@ -31,21 +31,21 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 overflow-hidden text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl p-4 sm:p-6 overflow-hidden text-slate-100 max-h-[92vh] flex flex-col my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-slate-800 shrink-0">
           <div>
-            <h2 className="text-2xl font-black tracking-tight font-display text-white uppercase">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight font-display text-white uppercase">
               Suburban Hardware & Upgrades
             </h2>
-            <p className="text-xs text-slate-400 font-body">
-              Spend collected coins to enhance Mr. Rogers and protect your glass fixtures
+            <p className="text-[11px] sm:text-xs text-slate-400 font-body">
+              Spend coins to enhance Mr. Rogers and defend your glass fixtures
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+            className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
             aria-label="Close"
           >
             <X className="w-5 h-5" />

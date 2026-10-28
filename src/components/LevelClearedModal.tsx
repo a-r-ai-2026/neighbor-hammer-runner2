@@ -31,8 +31,8 @@ export const LevelClearedModal: React.FC<LevelClearedModalProps> = ({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-      <div className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 text-center text-slate-100 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-4 sm:p-6 text-center text-slate-100 shadow-2xl max-h-[94vh] overflow-y-auto my-auto">
         {/* Trophy Badge */}
         <div className="inline-flex p-3 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-3">
           <Trophy className="w-8 h-8" />

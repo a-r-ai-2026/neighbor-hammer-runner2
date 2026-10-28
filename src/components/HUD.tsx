@@ -79,6 +79,7 @@ export const HUD: React.FC<HUDProps> = ({
   onMoveLeftEnd,
   onMoveRightStart,
   onMoveRightEnd,
+  onPointerSteer,
 }) => {
   const [ripples, setRipples] = useState<TapRipple[]>([]);
 
@@ -134,8 +135,12 @@ export const HUD: React.FC<HUDProps> = ({
   // Tilt bubble indicator offset (-24px to +24px)
   const bubbleOffset = Math.max(-28, Math.min(28, (tiltAngle / 16) * 28));
 
-  // Full-screen tap handler for mobile smash
+  // Full-screen tap & drag handler for mobile smash & direct touch steering
   const handleScreenPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Steer Mr. Rogers directly to the horizontal tap position
+    const normX = Math.max(-1, Math.min(1, (e.clientX / window.innerWidth) * 2 - 1));
+    onPointerSteer(normX);
+
     const newRipple: TapRipple = {
       id: Date.now() + Math.random(),
       x: e.clientX,
@@ -149,6 +154,14 @@ export const HUD: React.FC<HUDProps> = ({
     onSmash();
   };
 
+  const handleScreenPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Continuous finger dragging steers Mr. Rogers smoothly
+    if (e.buttons > 0 || e.pointerType === 'touch') {
+      const normX = Math.max(-1, Math.min(1, (e.clientX / window.innerWidth) * 2 - 1));
+      onPointerSteer(normX);
+    }
+  };
+
   const isShockwaveReady = abilities.shockwaveCooldown <= 0;
   const isTimeSlowReady = abilities.timeSlowCooldown <= 0;
   const isTimeSlowActive = abilities.timeSlowRemaining > 0;
@@ -156,7 +169,8 @@ export const HUD: React.FC<HUDProps> = ({
   return (
     <div
       onPointerDown={handleScreenPointerDown}
-      className="absolute inset-0 pointer-events-auto cursor-crosshair flex flex-col justify-between p-2 sm:p-4 z-20 select-none overflow-hidden"
+      onPointerMove={handleScreenPointerMove}
+      className="absolute inset-0 pointer-events-auto cursor-crosshair flex flex-col justify-between p-1.5 sm:p-4 pt-[max(0.5rem,env(safe-area-inset-top,0.5rem))] pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))] pl-[max(0.5rem,env(safe-area-inset-left,0.5rem))] pr-[max(0.5rem,env(safe-area-inset-right,0.5rem))] z-20 select-none overflow-hidden touch-none"
     >
       {/* Visual Tap Shockwaves */}
       {ripples.map((r) => (
@@ -170,31 +184,31 @@ export const HUD: React.FC<HUDProps> = ({
       {/* --- TOP HUD BAR --- */}
       <div
         onPointerDown={(e) => e.stopPropagation()}
-        className="flex items-start justify-between gap-1.5 sm:gap-3 pointer-events-auto"
+        className="flex items-start justify-between gap-1 sm:gap-3 pointer-events-auto w-full"
       >
         {/* Left: Wave & Active Fixture Tag */}
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 shadow-xl max-w-[200px] sm:max-w-xs">
-          <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl px-2.5 py-1.5 sm:px-4 sm:py-2.5 shadow-xl max-w-[145px] sm:max-w-xs shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2">
             <span className="text-[10px] sm:text-xs font-bold text-amber-400 font-mono tracking-wider uppercase">
-              Wave {level}
+              W{level}
             </span>
             <span className="text-slate-500 font-mono text-xs">/</span>
-            <span className="text-[10px] sm:text-xs text-slate-300 font-semibold uppercase truncate">
+            <span className="text-[9px] sm:text-xs text-slate-300 font-semibold uppercase truncate">
               {fixture.category === 'door' ? 'Patio Door' : 'Window'}
             </span>
           </div>
-          <div className="text-sm sm:text-base md:text-lg font-black text-white font-display uppercase tracking-tight truncate">
+          <div className="text-xs sm:text-base md:text-lg font-black text-white font-display uppercase tracking-tight truncate">
             {fixture.name}
           </div>
 
           {/* Glass Integrity Meter (3 Hits max) */}
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5 sm:mt-1">
             {[0, 1, 2].map((idx) => {
               const isAlive = idx < remainingGlassLives;
               return (
                 <div
                   key={idx}
-                  className={`w-3.5 sm:w-5 h-2 rounded-sm transition-all ${
+                  className={`w-3 sm:w-5 h-1.5 sm:h-2 rounded-sm transition-all ${
                     isAlive
                       ? remainingGlassLives === 3
                         ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50'
@@ -207,7 +221,7 @@ export const HUD: React.FC<HUDProps> = ({
                 />
               );
             })}
-            <span className="text-[9px] sm:text-[11px] font-mono text-slate-300 ml-1">
+            <span className="text-[8px] sm:text-[11px] font-mono text-slate-300 ml-0.5 truncate">
               {getDamageLabel()}
             </span>
           </div>

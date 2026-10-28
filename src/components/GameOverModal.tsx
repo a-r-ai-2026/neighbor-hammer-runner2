@@ -21,8 +21,8 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   const isNewHighScore = score >= highScore && score > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-red-950/80 backdrop-blur-md">
-      <div className="relative w-full max-w-md bg-slate-900 border border-red-500/40 rounded-3xl p-6 text-center text-slate-100 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-red-950/80 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-md bg-slate-900 border border-red-500/40 rounded-3xl p-4 sm:p-6 text-center text-slate-100 shadow-2xl max-h-[94vh] overflow-y-auto my-auto">
         {/* Warning Skull / Shatter Icon */}
         <div className="inline-flex p-3 rounded-2xl bg-red-600/20 text-red-400 border border-red-500/30 mb-3 animate-bounce">
           <AlertTriangle className="w-8 h-8" />
