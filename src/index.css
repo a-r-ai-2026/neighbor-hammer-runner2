@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Barlow Condensed', sans-serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+  }
+  
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    font-family: var(--font-body);
+    background-color: #0f172a;
+  }
+}
+
+.font-display {
+  font-family: 'Barlow Condensed', sans-serif;
+}
+
+.font-body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Shake animations for impacts */
+@keyframes screen-shake-mild {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-3px, 2px) rotate(-0.5deg); }
+  40% { transform: translate(3px, -2px) rotate(0.5deg); }
+  60% { transform: translate(-2px, -2px) rotate(-0.25deg); }
+  80% { transform: translate(2px, 1px) rotate(0.25deg); }
+}
+
+@keyframes screen-shake-severe {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  15% { transform: translate(-8px, 6px) rotate(-1.5deg); }
+  30% { transform: translate(7px, -6px) rotate(1.5deg); }
+  45% { transform: translate(-6px, -5px) rotate(-1deg); }
+  60% { transform: translate(5px, 4px) rotate(0.75deg); }
+  75% { transform: translate(-3px, -2px) rotate(-0.5deg); }
+  90% { transform: translate(2px, 2px) rotate(0.25deg); }
+}
+
+.animate-shake-mild {
+  animation: screen-shake-mild 0.25s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.animate-shake-severe {
+  animation: screen-shake-severe 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}

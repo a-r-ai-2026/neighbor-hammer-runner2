@@ -1,0 +1,8 @@
+{
+  "name": "Remix - Mr. Rogers: Window Smash Defender",
+  "description": "3D endless runner and BrickBreaker hybrid where Mr. Rogers defends escalating windows and patio doors from incoming projectiles using his trusty sledgehammer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
