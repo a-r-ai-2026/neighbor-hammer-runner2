@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createToonMaterial } from './toonShading';
 
 export class SuburbanEnvironment {
   public group: THREE.Group;
@@ -8,21 +9,17 @@ export class SuburbanEnvironment {
     this.group = new THREE.Group();
     this.cloudsGroup = new THREE.Group();
     this.group.add(this.cloudsGroup);
-    this.buildSuburbanScene();
-    this.buildCinematicSkyAndClouds();
+    this.buildWindWakerScene();
+    this.buildWindWakerSkyAndClouds();
   }
 
-  private buildSuburbanScene() {
-    // 1. Concrete & Asphalt Driveway / Defense Lane (Movie-quality PBR sheen)
+  private buildWindWakerScene() {
+    // 1. Wind Waker Stylized Cobblestone Driveway / Defense Lane
     const roadWidth = 14;
     const roadLength = 55;
-    const roadMat = new THREE.MeshStandardMaterial({
-      color: 0x273549, // Deep cinematic asphalt
-      roughness: 0.65,
-      metalness: 0.18, // Catches low-angle golden sun reflections
-    });
+    const roadMat = createToonMaterial(0x94a3b8, { steps: 3 }); // Sunlit stone
     const road = new THREE.Mesh(
-      new THREE.PlaneGeometry(roadWidth, roadLength, 16, 32),
+      new THREE.PlaneGeometry(roadWidth, roadLength),
       roadMat
     );
     road.rotation.x = -Math.PI / 2;
@@ -30,253 +27,201 @@ export class SuburbanEnvironment {
     road.receiveShadow = true;
     this.group.add(road);
 
-    // Weathered Asphalt tire tracks (subtle dark rubber trails)
-    const tireMat = new THREE.MeshBasicMaterial({
-      color: 0x1e293b,
-      transparent: true,
-      opacity: 0.45,
-    });
-    const trackL = new THREE.Mesh(new THREE.PlaneGeometry(1.6, roadLength - 4), tireMat);
-    trackL.rotation.x = -Math.PI / 2;
-    trackL.position.set(-2.8, 0.005, -roadLength / 2 + 2);
-    this.group.add(trackL);
+    // Cobblestone slab border curbs
+    const curbMat = createToonMaterial(0x64748b, { steps: 3 });
+    const curbL = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.22, roadLength), curbMat);
+    curbL.position.set(-roadWidth / 2 - 0.3, 0.11, -roadLength / 2 + 2);
+    curbL.castShadow = true;
+    this.group.add(curbL);
 
-    const trackR = trackL.clone();
-    trackR.position.x = 2.8;
-    this.group.add(trackR);
+    const curbR = curbL.clone();
+    curbR.position.x = roadWidth / 2 + 0.3;
+    this.group.add(curbR);
 
-    // Driveway reflective yellow center lane dashes
-    const stripeMat = new THREE.MeshStandardMaterial({
-      color: 0xfacc15,
-      roughness: 0.3,
-      emissive: 0xf59e0b,
-      emissiveIntensity: 0.2, // Subtle glow
-    });
+    // Wind Waker cartoon yellow lane diamonds (instead of modern highway dashes)
+    const diamondMat = createToonMaterial(0xfacc15, { steps: 3 });
     for (let z = -45; z <= 0; z += 5) {
-      const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 2.6), stripeMat);
-      stripe.rotation.x = -Math.PI / 2;
-      stripe.position.set(0, 0.012, z);
-      this.group.add(stripe);
+      const diamond = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), diamondMat);
+      diamond.rotation.set(-Math.PI / 2, 0, Math.PI / 4);
+      diamond.position.set(0, 0.015, z);
+      this.group.add(diamond);
     }
 
-    // Concrete Sidewalk Curbs with bevels
-    const curbMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85 });
-    const leftCurb = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.28, roadLength), curbMat);
-    leftCurb.position.set(-roadWidth / 2 - 0.32, 0.14, -roadLength / 2 + 2);
-    leftCurb.castShadow = true;
-    leftCurb.receiveShadow = true;
-    this.group.add(leftCurb);
+    // 2. Vibrant Wind Waker Emerald Green Lawn
+    const grassMat = createToonMaterial(0x22c55e, { steps: 3 });
+    const lawnWidth = 90;
+    const lawnLength = 70;
+    const lawnL = new THREE.Mesh(
+      new THREE.PlaneGeometry((lawnWidth - roadWidth) / 2, lawnLength),
+      grassMat
+    );
+    lawnL.rotation.x = -Math.PI / 2;
+    lawnL.position.set(-roadWidth / 2 - (lawnWidth - roadWidth) / 4, -0.01, -lawnLength / 2 + 5);
+    lawnL.receiveShadow = true;
+    this.group.add(lawnL);
 
-    const rightCurb = leftCurb.clone();
-    rightCurb.position.x = roadWidth / 2 + 0.32;
-    this.group.add(rightCurb);
+    const lawnR = lawnL.clone();
+    lawnR.position.x = roadWidth / 2 + (lawnWidth - roadWidth) / 4;
+    this.group.add(lawnR);
 
-    // Concrete Sidewalk Paver Walkways
-    const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.75 });
-    const leftWalk = new THREE.Mesh(new THREE.PlaneGeometry(2.4, roadLength), sidewalkMat);
-    leftWalk.rotation.x = -Math.PI / 2;
-    leftWalk.position.set(-roadWidth / 2 - 1.85, 0.145, -roadLength / 2 + 2);
-    leftWalk.receiveShadow = true;
-    this.group.add(leftWalk);
+    // 3. Cute Cartoon Flowers on Lawn
+    this.buildCartoonFlowerPatches();
 
-    const rightWalk = leftWalk.clone();
-    rightWalk.position.x = roadWidth / 2 + 1.85;
-    this.group.add(rightWalk);
-
-    // 2. Lush Vibrant Green Suburban Lawns
-    const grassMat = new THREE.MeshStandardMaterial({
-      color: 0x15803d, // Rich forest emerald grass
-      roughness: 0.85,
-      metalness: 0.02,
-    });
-    const lawnWidth = 35;
-    const leftLawn = new THREE.Mesh(new THREE.PlaneGeometry(lawnWidth, roadLength + 10), grassMat);
-    leftLawn.rotation.x = -Math.PI / 2;
-    leftLawn.position.set(-roadWidth / 2 - lawnWidth / 2 - 3.2, 0.08, -roadLength / 2 + 2);
-    leftLawn.receiveShadow = true;
-    this.group.add(leftLawn);
-
-    const rightLawn = leftLawn.clone();
-    rightLawn.position.x = roadWidth / 2 + lawnWidth / 2 + 3.2;
-    this.group.add(rightLawn);
-
-    // 3. Flower Beds & 3D Grass Tufts along the curbs
-    this.buildLawnFlora(roadWidth, roadLength);
-
-    // 4. White Picket Fences along the property lines
-    const fenceMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.45 });
-    for (let z = -48; z <= 2; z += 1.8) {
-      const picketL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.25, 0.06), fenceMat);
-      picketL.position.set(-roadWidth / 2 - 3.2, 0.65, z);
-      picketL.castShadow = true;
-      this.group.add(picketL);
-
-      const picketR = picketL.clone();
-      picketR.position.x = roadWidth / 2 + 3.2;
-      this.group.add(picketR);
-    }
-    const railL1 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, roadLength), fenceMat);
-    railL1.position.set(-roadWidth / 2 - 3.2, 0.45, -roadLength / 2 + 2);
-    this.group.add(railL1);
-    const railL2 = railL1.clone();
-    railL2.position.y = 0.95;
-    this.group.add(railL2);
-
-    const railR1 = railL1.clone();
-    railR1.position.x = roadWidth / 2 + 3.2;
-    this.group.add(railR1);
-    const railR2 = railL2.clone();
-    railR2.position.x = roadWidth / 2 + 3.2;
-    this.group.add(railR2);
-
-    // 5. Suburban Streetlamps along the sidewalk
-    const lampMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.3 });
-    const lampGlassMat = new THREE.MeshStandardMaterial({
-      color: 0xfef08a,
-      emissive: 0xfacc15,
-      emissiveIntensity: 0.8,
-      roughness: 0.2,
-    });
-    const lampZPositions = [-12, -28, -44];
-    lampZPositions.forEach((lz) => {
-      // Left Streetlamp
-      const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 4.2, 8), lampMat);
-      postL.position.set(-roadWidth / 2 - 2.8, 2.1, lz);
-      postL.castShadow = true;
-      this.group.add(postL);
-
-      const lanternL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 0.4), lampGlassMat);
-      lanternL.position.set(-roadWidth / 2 - 2.8, 4.3, lz);
-      this.group.add(lanternL);
-
-      // Right Streetlamp
-      const postR = postL.clone();
-      postR.position.x = roadWidth / 2 + 2.8;
-      this.group.add(postR);
-
-      const lanternR = lanternL.clone();
-      lanternR.position.x = roadWidth / 2 + 2.8;
-      this.group.add(lanternR);
-    });
-
-    // 6. Detailed Suburban Houses in the background
-    this.buildSuburbanHouse(-roadWidth / 2 - 16, 0, -25, 0x3b82f6, 0x991b1b);
-    this.buildSuburbanHouse(roadWidth / 2 + 16, 0, -32, 0xf59e0b, 0x1e3a8a);
-    this.buildSuburbanHouse(-roadWidth / 2 - 18, 0, -45, 0x10b981, 0x7c2d12);
-    this.buildSuburbanHouse(roadWidth / 2 + 18, 0, -15, 0x8b5cf6, 0x374151);
-
-    // Stylized low-poly trees with multi-tier foliage
-    const treeMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 });
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
-
+    // 4. Wind Waker Pom-Pom Lollipop Trees
     const treePositions = [
-      [-roadWidth / 2 - 6, -14],
-      [-roadWidth / 2 - 8, -28],
-      [-roadWidth / 2 - 7, -42],
-      [roadWidth / 2 + 7, -18],
-      [roadWidth / 2 + 9, -34],
-      [roadWidth / 2 + 6, -48],
+      [-12, -8],
+      [-14, -22],
+      [-13, -38],
+      [12, -10],
+      [14, -25],
+      [13, -40],
     ];
-
     treePositions.forEach(([tx, tz]) => {
-      const tree = new THREE.Group();
-      tree.position.set(tx, 0, tz);
-
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, 2.2, 8), trunkMat);
-      trunk.position.y = 1.1;
-      trunk.castShadow = true;
-      tree.add(trunk);
-
-      const foliage1 = new THREE.Mesh(new THREE.ConeGeometry(2.0, 3.4, 8), treeMat);
-      foliage1.position.y = 3.2;
-      foliage1.castShadow = true;
-      tree.add(foliage1);
-
-      const foliage2 = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.6, 8), treeMat);
-      foliage2.position.y = 4.6;
-      foliage2.castShadow = true;
-      tree.add(foliage2);
-
-      this.group.add(tree);
+      this.buildWindWakerTree(tx, 0, tz);
     });
+
+    // 5. Stylized White Cartoon Picket Fences
+    this.buildCartoonFences(roadLength);
+
+    // 6. Neighboring Wind Waker Island Cottages
+    this.buildWindWakerCottage(-26, 0, -22, 0xfef08a, 0xe11d48);
+    this.buildWindWakerCottage(26, 0, -25, 0xbfdbfe, 0xf97316);
   }
 
-  private buildLawnFlora(roadWidth: number, roadLength: number) {
-    const flowerMatYellow = new THREE.MeshStandardMaterial({
-      color: 0xfacc15,
-      roughness: 0.6,
-      emissive: 0xf59e0b,
-      emissiveIntensity: 0.2,
-    });
-    const flowerMatRed = new THREE.MeshStandardMaterial({
-      color: 0xef4444,
-      roughness: 0.6,
-      emissive: 0xdc2626,
-      emissiveIntensity: 0.2,
-    });
-    const stemMat = new THREE.MeshStandardMaterial({ color: 0x15803d });
+  private buildCartoonFlowerPatches() {
+    const flowerWhiteMat = createToonMaterial(0xffffff, { steps: 3 });
+    const flowerYellowMat = createToonMaterial(0xfde047, { steps: 3 });
+    const flowerRedMat = createToonMaterial(0xf87171, { steps: 3 });
 
-    const flowerPositions = [
-      [-roadWidth / 2 - 3.8, -8],
-      [-roadWidth / 2 - 4.1, -16],
-      [-roadWidth / 2 - 3.9, -26],
-      [-roadWidth / 2 - 4.2, -38],
-      [roadWidth / 2 + 3.8, -10],
-      [roadWidth / 2 + 4.1, -22],
-      [roadWidth / 2 + 3.9, -35],
+    const flowerCoords = [
+      [-9, -4], [-10.5, -6], [-8.5, -12], [-11, -18], [-9.5, -30],
+      [9, -5], [10.5, -7], [8.5, -14], [11, -20], [9.5, -32],
     ];
 
-    flowerPositions.forEach(([fx, fz], idx) => {
-      const cluster = new THREE.Group();
-      cluster.position.set(fx, 0.1, fz);
+    flowerCoords.forEach(([fx, fz], idx) => {
+      const flowerGroup = new THREE.Group();
+      flowerGroup.position.set(fx, 0.05, fz);
 
-      const mat = idx % 2 === 0 ? flowerMatYellow : flowerMatRed;
-      for (let i = 0; i < 4; i++) {
-        const blossom = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), mat);
-        blossom.position.set((Math.random() - 0.5) * 0.4, 0.25 + Math.random() * 0.15, (Math.random() - 0.5) * 0.4);
-        cluster.add(blossom);
+      // Flower center
+      const center = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.04, 8), flowerYellowMat);
+      flowerGroup.add(center);
 
-        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3, 4), stemMat);
-        stem.position.set(blossom.position.x, 0.15, blossom.position.z);
-        cluster.add(stem);
+      // Petals
+      const petalMat = idx % 2 === 0 ? flowerWhiteMat : flowerRedMat;
+      for (let p = 0; p < 5; p++) {
+        const angle = (p / 5) * Math.PI * 2;
+        const petal = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.03, 6), petalMat);
+        petal.position.set(Math.cos(angle) * 0.2, 0, Math.sin(angle) * 0.2);
+        flowerGroup.add(petal);
       }
-      this.group.add(cluster);
+      this.group.add(flowerGroup);
     });
   }
 
-  private buildCinematicSkyAndClouds() {
-    // Glowing Cinematic Sun Disk (high in sky deep down lane)
-    const sunMat = new THREE.MeshBasicMaterial({
-      color: 0xffedd5, // Radiant golden white
-    });
-    const sun = new THREE.Mesh(new THREE.SphereGeometry(4.5, 24, 24), sunMat);
-    sun.position.set(18, 38, -65);
-    this.group.add(sun);
+  private buildWindWakerTree(x: number, y: number, z: number) {
+    const tree = new THREE.Group();
+    tree.position.set(x, y, z);
 
-    // Sun Corona Glow Ring
-    const coronaMat = new THREE.MeshBasicMaterial({
-      color: 0xfbbf24,
-      transparent: true,
-      opacity: 0.35,
+    const trunkMat = createToonMaterial(0x9a3412, { steps: 3 });
+    const leavesDarkMat = createToonMaterial(0x16a34a, { steps: 3 });
+    const leavesLightMat = createToonMaterial(0x4ade80, { steps: 3 });
+
+    // Chunky wooden trunk
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.55, 3.5, 8), trunkMat);
+    trunk.position.y = 1.75;
+    trunk.castShadow = true;
+    tree.add(trunk);
+
+    // Tiered cartoon pom-pom foliage (Wind Waker style)
+    const botLeaves = new THREE.Mesh(new THREE.SphereGeometry(2.0, 10, 8), leavesDarkMat);
+    botLeaves.position.y = 4.0;
+    botLeaves.scale.set(1.2, 0.9, 1.2);
+    botLeaves.castShadow = true;
+    tree.add(botLeaves);
+
+    const topLeaves = new THREE.Mesh(new THREE.SphereGeometry(1.4, 10, 8), leavesLightMat);
+    topLeaves.position.y = 5.4;
+    topLeaves.scale.set(1.0, 0.9, 1.0);
+    topLeaves.castShadow = true;
+    tree.add(topLeaves);
+
+    // Contact cartoon shadow
+    const shadowGeo = new THREE.CircleGeometry(2.2, 12);
+    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x14532d, transparent: true, opacity: 0.35 });
+    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.02;
+    tree.add(shadow);
+
+    this.group.add(tree);
+  }
+
+  private buildCartoonFences(roadLength: number) {
+    const fenceMat = createToonMaterial(0xf8fafc, { steps: 3 });
+    const fenceXOffsets = [-8.0, 8.0];
+
+    fenceXOffsets.forEach((fx) => {
+      for (let fz = -44; fz <= -4; fz += 3.2) {
+        // Picket post
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.1, 0.14), fenceMat);
+        post.position.set(fx, 0.55, fz);
+        post.castShadow = true;
+        this.group.add(post);
+
+        // Pointy fence tip
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.22, 4), fenceMat);
+        tip.rotation.y = Math.PI / 4;
+        tip.position.set(fx, 1.21, fz);
+        this.group.add(tip);
+
+        // Horizontal rail
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 3.2), fenceMat);
+        rail.position.set(fx, 0.65, fz + 1.6);
+        this.group.add(rail);
+      }
+    });
+  }
+
+  private buildWindWakerSkyAndClouds() {
+    // 1. Wind Waker Vibrant Ocean Sky Dome
+    const skyGeo = new THREE.SphereGeometry(95, 24, 16);
+    const skyMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8, // Vibrant Wind Waker blue
       side: THREE.BackSide,
     });
-    const corona = new THREE.Mesh(new THREE.SphereGeometry(6.2, 16, 16), coronaMat);
-    corona.position.copy(sun.position);
-    this.group.add(corona);
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    this.group.add(sky);
 
-    // Fluffy 3D Stylized Cumulus Clouds
-    const cloudMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.9,
-      metalness: 0.05,
+    // 2. Wind Waker Cartoon Stylized Sun with clean ring
+    const sunMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+    const sun = new THREE.Mesh(new THREE.CircleGeometry(6.0, 24), sunMat);
+    sun.position.set(22, 44, -75);
+    this.group.add(sun);
+
+    // Sun outer corona ring
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xfde047,
+      transparent: true,
+      opacity: 0.45,
+      side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(6.5, 8.2, 24), ringMat);
+    ring.position.copy(sun.position);
+    this.group.add(ring);
+
+    // 3. Wind Waker Iconic Spiral & Scrollwork Cartoon Clouds
+    const cloudMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.92,
     });
 
     const cloudSpecs = [
-      { x: -35, y: 32, z: -55, scale: 1.4 },
-      { x: -12, y: 36, z: -70, scale: 1.8 },
-      { x: 26, y: 34, z: -58, scale: 1.5 },
-      { x: 42, y: 28, z: -62, scale: 1.3 },
-      { x: -22, y: 26, z: -48, scale: 1.1 },
+      { x: -38, y: 34, z: -60, scale: 2.2 },
+      { x: -14, y: 38, z: -72, scale: 2.8 },
+      { x: 28, y: 35, z: -62, scale: 2.4 },
+      { x: 48, y: 30, z: -66, scale: 2.0 },
+      { x: -24, y: 28, z: -52, scale: 1.8 },
     ];
 
     cloudSpecs.forEach((spec) => {
@@ -284,17 +229,17 @@ export class SuburbanEnvironment {
       cloud.position.set(spec.x, spec.y, spec.z);
       cloud.scale.setScalar(spec.scale);
 
-      // Overlapping puff spheres forming cumulus cloud
+      // Overlapping cartoon puffs forming stylized cumulus
       const puffOffsets = [
-        [0, 0, 0, 2.2],
-        [-1.8, -0.4, 0.3, 1.8],
-        [1.8, -0.3, -0.2, 1.7],
-        [-0.8, 0.8, -0.4, 1.5],
-        [1.0, 0.7, 0.2, 1.4],
+        [0, 0, 0, 1.8],
+        [-1.6, -0.3, 0.2, 1.4],
+        [1.6, -0.2, -0.2, 1.3],
+        [-0.7, 0.8, -0.2, 1.2],
+        [0.9, 0.7, 0.1, 1.1],
       ];
 
       puffOffsets.forEach(([px, py, pz, pr]) => {
-        const puff = new THREE.Mesh(new THREE.SphereGeometry(pr, 10, 10), cloudMat);
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(pr, 8, 8), cloudMat);
         puff.position.set(px, py, pz);
         cloud.add(puff);
       });
@@ -303,39 +248,33 @@ export class SuburbanEnvironment {
     });
   }
 
-  private buildSuburbanHouse(x: number, y: number, z: number, wallColor: number, roofColor: number) {
+  private buildWindWakerCottage(x: number, y: number, z: number, wallColor: number, roofColor: number) {
     const house = new THREE.Group();
     house.position.set(x, y, z);
 
-    const houseW = 11;
-    const houseH = 6.5;
+    const houseW = 10;
+    const houseH = 6;
     const houseD = 9;
 
-    // Siding body
-    const bodyMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.7 });
+    const bodyMat = createToonMaterial(wallColor, { steps: 3 });
     const body = new THREE.Mesh(new THREE.BoxGeometry(houseW, houseH, houseD), bodyMat);
     body.position.y = houseH / 2;
     body.castShadow = true;
     body.receiveShadow = true;
     house.add(body);
 
-    // Gabled Roof
-    const roofMat = new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.8 });
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(houseW * 0.75, 3.8, 4), roofMat);
+    // Warm terracotta / clay cartoon roof
+    const roofMat = createToonMaterial(roofColor, { steps: 3 });
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(houseW * 0.78, 3.5, 4), roofMat);
     roof.rotation.y = Math.PI / 4;
-    roof.position.y = houseH + 1.9;
+    roof.position.y = houseH + 1.75;
     roof.castShadow = true;
     house.add(roof);
 
-    // Warm lit windows on neighboring house
-    const winMat = new THREE.MeshStandardMaterial({
-      color: 0xfef08a,
-      emissive: 0xfde047,
-      emissiveIntensity: 0.7,
-      roughness: 0.2,
-    });
-    const win1 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 0.1), winMat);
-    win1.position.set(-2.2, 3.2, houseD / 2 + 0.05);
+    // Cheerful cartoon window
+    const winMat = createToonMaterial(0x93c5fd, { steps: 3 });
+    const win1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 0.15), winMat);
+    win1.position.set(-2.2, 3.2, houseD / 2 + 0.08);
     house.add(win1);
 
     const win2 = win1.clone();
@@ -346,11 +285,10 @@ export class SuburbanEnvironment {
   }
 
   public update(delta: number) {
-    // Subtle drift of distant clouds
     this.cloudsGroup.children.forEach((cloud, idx) => {
       cloud.position.x += delta * (0.35 + idx * 0.1);
-      if (cloud.position.x > 60) {
-        cloud.position.x = -60;
+      if (cloud.position.x > 65) {
+        cloud.position.x = -65;
       }
     });
   }

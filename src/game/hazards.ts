@@ -1,351 +1,224 @@
 import * as THREE from 'three';
 import { Projectile, ProjectileType } from './types';
+import { createToonMaterial } from './toonShading';
 
 export class HazardManager {
   public scene: THREE.Scene;
   public projectiles: Projectile[] = [];
   public projectileMeshes: Map<string, THREE.Object3D> = new Map();
 
-  // Shared Geometries and Materials for high performance
-  private rockGeo: THREE.BufferGeometry;
-  private rockMat: THREE.MeshStandardMaterial;
+  // Cel-Shaded Materials for Wind Waker Aesthetic
+  private rockGeo: THREE.DodecahedronGeometry;
+  private rockMat: THREE.MeshToonMaterial;
 
   private golfBallGeo: THREE.SphereGeometry;
-  private golfBallMat: THREE.MeshPhysicalMaterial;
+  private golfBallMat: THREE.MeshToonMaterial;
 
   private baseballGeo: THREE.SphereGeometry;
-  private baseballMat: THREE.MeshStandardMaterial;
+  private baseballMat: THREE.MeshToonMaterial;
 
   private bowlingBallGeo: THREE.SphereGeometry;
-  private bowlingBallMat: THREE.MeshStandardMaterial;
+  private bowlingBallMat: THREE.MeshToonMaterial;
 
   private coinGeo: THREE.CylinderGeometry;
-  private coinMat: THREE.MeshStandardMaterial;
+  private coinMat: THREE.MeshToonMaterial;
 
   private nextId: number = 0;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
 
-    // Rock geometry (distorted icosahedron)
-    this.rockGeo = new THREE.DodecahedronGeometry(0.55, 1);
-    // Add procedural roughness to rock vertices
-    const pos = this.rockGeo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const v = new THREE.Vector3().fromBufferAttribute(pos, i);
-      v.multiplyScalar(0.85 + (Math.sin(v.x * 5) + Math.cos(v.y * 5)) * 0.12);
-      pos.setXYZ(i, v.x, v.y, v.z);
-    }
-    this.rockGeo.computeVertexNormals();
+    // 1. Wind Waker Stylized Polygonal Boulder
+    this.rockGeo = new THREE.DodecahedronGeometry(0.58, 0);
+    this.rockMat = createToonMaterial(0x78716c, { steps: 3 });
 
-    this.rockMat = new THREE.MeshStandardMaterial({
-      color: 0x78716c,
-      roughness: 0.9,
-      metalness: 0.1,
-      flatShading: true,
-    });
+    // 2. Wind Waker Cute Cartoon Golf Ball
+    const { golfMap } = this.generateToonGolfTexture();
+    this.golfBallGeo = new THREE.SphereGeometry(0.35, 16, 12);
+    this.golfBallMat = createToonMaterial(0xffffff, { steps: 3 });
+    this.golfBallMat.map = golfMap;
 
-    // Realistic Golf Ball with authentic dimples, red number stamp & alignment line
-    const { golfMap, golfBumpMap } = this.generateGolfBallTextures();
-    this.golfBallGeo = new THREE.SphereGeometry(0.33, 32, 28);
-    this.golfBallMat = new THREE.MeshPhysicalMaterial({
-      map: golfMap,
-      bumpMap: golfBumpMap,
-      bumpScale: 0.08,
-      roughness: 0.22,
-      metalness: 0.02,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.12,
-    });
+    // 3. Wind Waker Cartoon Baseball with bold red stitches
+    const baseballMap = this.generateToonBaseballTexture();
+    this.baseballGeo = new THREE.SphereGeometry(0.42, 16, 14);
+    this.baseballMat = createToonMaterial(0xfefce8, { steps: 3 });
+    this.baseballMat.map = baseballMap;
 
-    // Baseball with authentic red curved seams and stitches
-    this.baseballGeo = new THREE.SphereGeometry(0.38, 28, 24);
-    this.baseballMat = new THREE.MeshStandardMaterial({
-      map: this.generateBaseballTexture(),
-      roughness: 0.55,
-      metalness: 0.05,
-    });
+    // 4. Wind Waker Cartoon Midnight Bowling Ball
+    const bowlingMap = this.generateToonBowlingTexture();
+    this.bowlingBallGeo = new THREE.SphereGeometry(0.68, 18, 14);
+    this.bowlingBallMat = createToonMaterial(0x1e1b4b, { steps: 3 });
+    this.bowlingBallMat.map = bowlingMap;
 
-    // Cinematic Bowling Ball with deep cosmic marble pearlescent sheen and 3 finger holes
-    this.bowlingBallGeo = new THREE.SphereGeometry(0.7, 32, 28);
-    this.bowlingBallMat = new THREE.MeshPhysicalMaterial({
-      map: this.generateBowlingBallTexture(),
-      roughness: 0.12,
-      metalness: 0.1,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.06,
-    });
-
-    // High-Gloss 24K Embossed Collectible Coin
-    this.coinGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.08, 24);
-    this.coinMat = new THREE.MeshStandardMaterial({
-      map: this.generateCoinTexture(),
-      color: 0xffd700,
-      metalness: 0.95,
-      roughness: 0.18,
-      emissive: 0xd97706,
-      emissiveIntensity: 0.35,
-    });
+    // 5. Wind Waker Cel-Shaded 24K Gold Coin / Rupee
+    const coinMap = this.generateToonCoinTexture();
+    this.coinGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.12, 16);
+    this.coinMat = createToonMaterial(0xfacc15, { steps: 3 });
+    this.coinMat.map = coinMap;
   }
 
   /**
-   * Procedural golf ball canvas texture with dimple depression grid, red #1 stamp & arrow lines
+   * Cel-shaded golf ball with clean stylized dimple dots and red number
    */
-  private generateGolfBallTextures(): { golfMap: THREE.CanvasTexture; golfBumpMap: THREE.CanvasTexture } {
-    const width = 512;
-    const height = 256;
+  private generateToonGolfTexture(): { golfMap: THREE.CanvasTexture } {
+    const width = 256;
+    const height = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
 
-    const colorCanvas = document.createElement('canvas');
-    colorCanvas.width = width;
-    colorCanvas.height = height;
-    const ctx = colorCanvas.getContext('2d')!;
-
-    const bumpCanvas = document.createElement('canvas');
-    bumpCanvas.width = width;
-    bumpCanvas.height = height;
-    const bCtx = bumpCanvas.getContext('2d')!;
-
-    // Base colors
+    // Pure cartoon white
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
-    bCtx.fillStyle = '#808080'; // 50% neutral surface height
-    bCtx.fillRect(0, 0, width, height);
-
-    // Staggered hexagonal lattice of golf ball dimples
-    const cols = 28;
-    const rows = 14;
+    // Clean stylized cartoon dots
+    ctx.fillStyle = '#cbd5e1';
+    const cols = 16;
+    const rows = 8;
     const dx = width / cols;
     const dy = height / rows;
-    const r = dx * 0.44;
-
-    for (let row = 0; row < rows; row++) {
-      const offsetX = (row % 2) * (dx / 2);
-      for (let col = 0; col < cols; col++) {
-        const cx = col * dx + offsetX;
-        const cy = (row + 0.5) * dy;
-
-        // Bump map dimple (concave depression: dark center, bright rim highlight)
-        const bGrad = bCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
-        bGrad.addColorStop(0, '#1a1a1a');
-        bGrad.addColorStop(0.65, '#555555');
-        bGrad.addColorStop(0.9, '#b8b8b8');
-        bGrad.addColorStop(1, '#808080');
-        bCtx.fillStyle = bGrad;
-        bCtx.beginPath();
-        bCtx.arc(cx, cy, r, 0, Math.PI * 2);
-        bCtx.fill();
-
-        // Diffuse map dimple shadow
-        const cGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-        cGrad.addColorStop(0, '#cbd5e1');
-        cGrad.addColorStop(0.8, '#f1f5f9');
-        cGrad.addColorStop(1, '#ffffff');
-        ctx.fillStyle = cGrad;
+    for (let r = 0; r < rows; r++) {
+      const offsetX = (r % 2) * (dx / 2);
+      for (let c = 0; c < cols; c++) {
         ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.arc(c * dx + offsetX, (r + 0.5) * dy, 2.5, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
-    // Authentic Golf Ball Branding & Alignment Marks
-    // Red "1" number stamp (classic Titleist style)
-    ctx.fillStyle = '#dc2626';
-    ctx.font = 'bold 32px sans-serif';
+    // Bold cartoon red "1"
+    ctx.fillStyle = '#ef4444';
+    ctx.font = 'bold 28px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('1', width * 0.25, height * 0.48);
-    ctx.fillText('1', width * 0.75, height * 0.48);
+    ctx.fillText('1', width * 0.25, height * 0.5);
+    ctx.fillText('1', width * 0.75, height * 0.5);
 
-    // Brand title & alignment bar
-    ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.fillText('◄ ROGERS TOUR ►', width * 0.25, height * 0.7);
-    ctx.fillText('◄ ROGERS TOUR ►', width * 0.75, height * 0.7);
+    const golfMap = new THREE.CanvasTexture(canvas);
+    return { golfMap };
+  }
 
-    // Alignment arrow stripes
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 2.5;
+  /**
+   * Cartoon baseball texture with clean bold red seams
+   */
+  private generateToonBaseballTexture(): THREE.CanvasTexture {
+    const width = 256;
+    const height = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.fillStyle = '#fffbeb';
+    ctx.fillRect(0, 0, width, height);
+
+    // Bold red curved seams
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(width * 0.08, height * 0.48);
-    ctx.lineTo(width * 0.16, height * 0.48);
-    ctx.moveTo(width * 0.34, height * 0.48);
-    ctx.lineTo(width * 0.42, height * 0.48);
-
-    ctx.moveTo(width * 0.58, height * 0.48);
-    ctx.lineTo(width * 0.66, height * 0.48);
-    ctx.moveTo(width * 0.84, height * 0.48);
-    ctx.lineTo(width * 0.92, height * 0.48);
+    ctx.arc(width * 0.25, height * 0.5, 36, -Math.PI / 2, Math.PI / 2);
     ctx.stroke();
 
-    const golfMap = new THREE.CanvasTexture(colorCanvas);
-    golfMap.wrapS = THREE.RepeatWrapping;
-    golfMap.wrapT = THREE.ClampToEdgeWrapping;
+    ctx.beginPath();
+    ctx.arc(width * 0.75, height * 0.5, 36, Math.PI / 2, -Math.PI / 2);
+    ctx.stroke();
 
-    const golfBumpMap = new THREE.CanvasTexture(bumpCanvas);
-    golfBumpMap.wrapS = THREE.RepeatWrapping;
-    golfBumpMap.wrapT = THREE.ClampToEdgeWrapping;
+    // Red stitch V-marks
+    ctx.lineWidth = 2.5;
+    for (let i = -30; i <= 30; i += 10) {
+      ctx.beginPath();
+      ctx.moveTo(width * 0.25 + 36, height * 0.5 + i - 4);
+      ctx.lineTo(width * 0.25 + 44, height * 0.5 + i);
+      ctx.lineTo(width * 0.25 + 36, height * 0.5 + i + 4);
+      ctx.stroke();
 
-    return { golfMap, golfBumpMap };
+      ctx.beginPath();
+      ctx.moveTo(width * 0.75 - 36, height * 0.5 + i - 4);
+      ctx.lineTo(width * 0.75 - 44, height * 0.5 + i);
+      ctx.lineTo(width * 0.75 - 36, height * 0.5 + i + 4);
+      ctx.stroke();
+    }
+
+    return new THREE.CanvasTexture(canvas);
   }
 
   /**
-   * Authentic baseball leather texture with red curved seams and angled stitches
+   * Cartoon bowling ball with 3 distinct punch holes & glossy crescent shine
    */
-  private generateBaseballTexture(): THREE.CanvasTexture {
-    const width = 512;
-    const height = 256;
+  private generateToonBowlingTexture(): THREE.CanvasTexture {
+    const width = 256;
+    const height = 128;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d')!;
 
-    // Creamy white leather
-    ctx.fillStyle = '#f8fafc';
+    ctx.fillStyle = '#1e1b4b';
     ctx.fillRect(0, 0, width, height);
 
-    // Subtle leather grain noise
-    ctx.fillStyle = 'rgba(203, 213, 225, 0.25)';
-    for (let i = 0; i < 400; i++) {
-      ctx.fillRect(Math.random() * width, Math.random() * height, 2, 2);
-    }
-
-    // Red baseball seams
-    ctx.strokeStyle = '#dc2626';
-    ctx.lineWidth = 3;
-
-    // Draw 2 curved seam paths
-    const drawSeam = (offsetY: number, inverted: boolean) => {
-      ctx.beginPath();
-      for (let x = 0; x <= width; x += 4) {
-        const angle = (x / width) * Math.PI * 2;
-        const y = offsetY + Math.sin(angle) * (inverted ? -45 : 45);
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      // Individual angled stitches along the seam
-      ctx.strokeStyle = '#b91c1c';
-      ctx.lineWidth = 1.5;
-      for (let x = 8; x < width; x += 14) {
-        const angle = (x / width) * Math.PI * 2;
-        const y = offsetY + Math.sin(angle) * (inverted ? -45 : 45);
-        ctx.beginPath();
-        ctx.moveTo(x - 3, y - 5);
-        ctx.lineTo(x + 3, y + 5);
-        ctx.stroke();
-      }
-      ctx.strokeStyle = '#dc2626';
-      ctx.lineWidth = 3;
-    };
-
-    drawSeam(height * 0.35, false);
-    drawSeam(height * 0.65, true);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    return texture;
-  }
-
-  /**
-   * Deep cosmic marble bowling ball texture with 3 drilled finger holes
-   */
-  private generateBowlingBallTexture(): THREE.CanvasTexture {
-    const width = 512;
-    const height = 256;
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d')!;
-
-    // Deep midnight base
-    const grad = ctx.createLinearGradient(0, 0, width, height);
-    grad.addColorStop(0, '#090d16');
-    grad.addColorStop(0.3, '#1e1b4b');
-    grad.addColorStop(0.6, '#172554');
-    grad.addColorStop(1, '#020617');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, width, height);
-
-    // Swirling pearlescent ribbons
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
-    ctx.lineWidth = 14;
-    for (let i = 0; i < 6; i++) {
-      ctx.beginPath();
-      ctx.arc(width * 0.5 + i * 20, height * 0.5 - i * 15, 60 + i * 25, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    // 3 drilled black finger holes
+    // 3 cartoon black finger holes with cyan rims
     const drawHole = (cx: number, cy: number, r: number) => {
-      // Bevel rim
-      ctx.fillStyle = '#475569';
+      ctx.fillStyle = '#38bdf8';
       ctx.beginPath();
       ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
       ctx.fill();
 
-      // Deep dark hole cavity
-      ctx.fillStyle = '#000000';
+      ctx.fillStyle = '#020617';
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fill();
     };
 
-    drawHole(width * 0.25, height * 0.45, 9);
-    drawHole(width * 0.25 + 18, height * 0.45 - 20, 7);
-    drawHole(width * 0.25 - 18, height * 0.45 - 20, 7);
+    drawHole(width * 0.3, height * 0.45, 7);
+    drawHole(width * 0.3 + 14, height * 0.45 - 14, 5.5);
+    drawHole(width * 0.3 - 14, height * 0.45 - 14, 5.5);
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    return texture;
+    // Cartoon white gloss crescent
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(width * 0.72, height * 0.38, 22, -Math.PI * 0.8, -Math.PI * 0.2);
+    ctx.stroke();
+
+    return new THREE.CanvasTexture(canvas);
   }
 
   /**
-   * 24K Gold Coin texture with stamped star and coin edge ridges
+   * Wind Waker style coin with star emblem and bold rim
    */
-  private generateCoinTexture(): THREE.CanvasTexture {
-    const size = 256;
+  private generateToonCoinTexture(): THREE.CanvasTexture {
+    const size = 128;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Radial gold luster
-    const grad = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size / 2);
-    grad.addColorStop(0, '#fef08a');
-    grad.addColorStop(0.5, '#f59e0b');
-    grad.addColorStop(0.9, '#b45309');
-    grad.addColorStop(1, '#78350f');
-    ctx.fillStyle = grad;
+    ctx.fillStyle = '#f59e0b';
     ctx.fillRect(0, 0, size, size);
 
-    // Circular coin border ridge
-    ctx.strokeStyle = '#fef08a';
-    ctx.lineWidth = 6;
+    // Inner bright circle
+    ctx.fillStyle = '#fde047';
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bold border
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(size / 2, size / 2, size * 0.42, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Inner rim dots
-    ctx.fillStyle = '#fef3c7';
-    for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
-      const x = size / 2 + Math.cos(a) * (size * 0.36);
-      const y = size / 2 + Math.sin(a) * (size * 0.36);
-      ctx.beginPath();
-      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Embossed Star emblem in center
-    ctx.fillStyle = '#fffbeb';
-    ctx.font = 'bold 52px sans-serif';
+    // Star in center
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 36px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('★', size / 2, size / 2);
 
-    const texture = new THREE.CanvasTexture(canvas);
-    return texture;
+    return new THREE.CanvasTexture(canvas);
   }
 
   /**
@@ -355,7 +228,6 @@ export class HazardManager {
     this.nextId++;
     const id = `p_${this.nextId}`;
 
-    // Increased coin spawn rate (38%) for faster progression
     const isCoin = Math.random() < 0.38;
     let type: ProjectileType = 'rock';
 
@@ -377,8 +249,8 @@ export class HazardManager {
     // Lane width limits
     const halfW = (fixtureWidth * 0.85) / 2;
     const startX = (Math.random() - 0.5) * halfW * 2;
-    const startY = type === 'coin' ? 1.2 : 0.8 + Math.random() * 0.9;
-    const startZ = -45; // Far end of the suburban lane
+    const startY = type === 'coin' ? 1.2 : 0.8 + Math.random() * 0.8;
+    const startZ = -45;
 
     // Slight trajectory curve toward the window
     const targetX = startX + (Math.random() - 0.5) * 1.5;
@@ -390,12 +262,12 @@ export class HazardManager {
 
     const radius =
       type === 'bowling_ball'
-        ? 0.7
+        ? 0.68
         : type === 'rock'
-        ? 0.55
+        ? 0.58
         : type === 'baseball'
-        ? 0.4
-        : 0.32;
+        ? 0.42
+        : 0.35;
 
     const projectile: Projectile = {
       id,
@@ -409,14 +281,14 @@ export class HazardManager {
       rotX: Math.random() * Math.PI,
       rotY: Math.random() * Math.PI,
       rotZ: Math.random() * Math.PI,
-      rotSpeedX: (Math.random() - 0.5) * 8,
-      rotSpeedY: (Math.random() - 0.5) * 8,
+      rotSpeedX: (Math.random() - 0.5) * 6,
+      rotSpeedY: (Math.random() - 0.5) * 6,
       radius,
       active: true,
       value: isCoin ? 3 : type === 'bowling_ball' ? 300 : type === 'rock' ? 150 : 100,
     };
 
-    // Create 3D Mesh
+    // Create 3D Mesh with Wind Waker Toon Shading
     const mesh = this.createMeshForType(type);
     mesh.position.set(startX, startY, startZ);
     mesh.castShadow = true;
@@ -429,34 +301,23 @@ export class HazardManager {
 
   private createMeshForType(type: ProjectileType): THREE.Object3D {
     switch (type) {
-      case 'golf_ball': {
-        const mesh = new THREE.Mesh(this.golfBallGeo, this.golfBallMat);
-        return mesh;
-      }
-      case 'baseball': {
-        const mesh = new THREE.Mesh(this.baseballGeo, this.baseballMat);
-        return mesh;
-      }
-      case 'bowling_ball': {
-        const mesh = new THREE.Mesh(this.bowlingBallGeo, this.bowlingBallMat);
-        return mesh;
-      }
+      case 'golf_ball':
+        return new THREE.Mesh(this.golfBallGeo, this.golfBallMat);
+      case 'baseball':
+        return new THREE.Mesh(this.baseballGeo, this.baseballMat);
+      case 'bowling_ball':
+        return new THREE.Mesh(this.bowlingBallGeo, this.bowlingBallMat);
       case 'coin': {
         const coin = new THREE.Mesh(this.coinGeo, this.coinMat);
         coin.rotation.x = Math.PI / 2;
         return coin;
       }
       case 'rock':
-      default: {
-        const mesh = new THREE.Mesh(this.rockGeo, this.rockMat);
-        return mesh;
-      }
+      default:
+        return new THREE.Mesh(this.rockGeo, this.rockMat);
     }
   }
 
-  /**
-   * Per-frame update of flying projectiles
-   */
   public update(delta: number): {
     glassHitProjectiles: Projectile[];
     escapedCoins: Projectile[];
@@ -479,14 +340,14 @@ export class HazardManager {
       if (mesh) {
         mesh.position.set(p.x, p.y, p.z);
         if (p.type === 'coin') {
-          mesh.rotation.y += delta * 5.0; // Spin coin
+          mesh.rotation.y += delta * 4.5;
         } else {
           mesh.rotation.x = p.rotX;
           mesh.rotation.y = p.rotY;
         }
       }
 
-      // Check if projectile reached the bottom window baseline (Z >= 0.2)
+      // Check if projectile reached window baseline (Z >= 0.2)
       if (p.z >= 0.2) {
         p.active = false;
         if (p.type === 'coin') {
@@ -501,13 +362,7 @@ export class HazardManager {
     return { glassHitProjectiles, escapedCoins };
   }
 
-  /**
-   * Check collision with hammer smash hit zone
-   */
-  public checkHammerHits(
-    hammerPos: THREE.Vector3,
-    smashRadius: number
-  ): Projectile[] {
+  public checkHammerHits(hammerPos: THREE.Vector3, smashRadius: number): Projectile[] {
     const hitList: Projectile[] = [];
 
     for (let i = 0; i < this.projectiles.length; i++) {
@@ -529,9 +384,28 @@ export class HazardManager {
     return hitList;
   }
 
-  /**
-   * Pulverize all incoming hazards in a wide shockwave radius (Super Ability)
-   */
+  public checkCoinPickups(playerPos: THREE.Vector3, pickupRadius: number): Projectile[] {
+    const collected: Projectile[] = [];
+
+    for (let i = 0; i < this.projectiles.length; i++) {
+      const p = this.projectiles[i];
+      if (!p.active || p.type !== 'coin') continue;
+
+      const dx = p.x - playerPos.x;
+      const dy = p.y - playerPos.y;
+      const dz = p.z - playerPos.z;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+      if (dist <= pickupRadius + p.radius) {
+        p.active = false;
+        collected.push(p);
+        this.removeProjectile(p.id);
+      }
+    }
+
+    return collected;
+  }
+
   public clearHazardsInRadius(center: THREE.Vector3, radius: number): Projectile[] {
     const pulverized: Projectile[] = [];
 
@@ -554,30 +428,6 @@ export class HazardManager {
     return pulverized;
   }
 
-  /**
-   * Check Mr. Rogers body collision with flying coins
-   */
-  public checkCoinPickups(playerPos: THREE.Vector3, pickupRadius: number): Projectile[] {
-    const collected: Projectile[] = [];
-
-    for (let i = 0; i < this.projectiles.length; i++) {
-      const p = this.projectiles[i];
-      if (!p.active || p.type !== 'coin') continue;
-
-      const dx = p.x - playerPos.x;
-      const dz = p.z - playerPos.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-
-      if (dist <= pickupRadius + p.radius) {
-        p.active = false;
-        collected.push(p);
-        this.removeProjectile(p.id);
-      }
-    }
-
-    return collected;
-  }
-
   public removeProjectile(id: string) {
     const mesh = this.projectileMeshes.get(id);
     if (mesh) {
@@ -593,7 +443,9 @@ export class HazardManager {
   public clearAll() {
     this.projectiles.forEach((p) => {
       const mesh = this.projectileMeshes.get(p.id);
-      if (mesh) this.scene.remove(mesh);
+      if (mesh) {
+        this.scene.remove(mesh);
+      }
     });
     this.projectiles = [];
     this.projectileMeshes.clear();

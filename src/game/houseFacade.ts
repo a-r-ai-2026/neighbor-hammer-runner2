@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FixtureSpec } from './types';
+import { createToonMaterial } from './toonShading';
 
 export class HouseFacade {
   public group: THREE.Group;
@@ -17,7 +18,7 @@ export class HouseFacade {
   }
 
   /**
-   * Rebuild or adjust the house facade around the active window/patio door
+   * Rebuild or adjust the Wind Waker cottage facade around the active window/patio door
    */
   public updateFixture(fixture: FixtureSpec) {
     this.currentFixture = fixture;
@@ -46,39 +47,13 @@ export class HouseFacade {
     const wallTotalWidth = 42;
     const wallZ = 0.25;
 
-    // Siding material (crisp suburban horizontal clapboard siding)
-    const sidingMat = new THREE.MeshStandardMaterial({
-      color: 0x475569, // Modern slate grey siding
-      roughness: 0.75,
-      metalness: 0.05,
-    });
-
-    // White trim and casing material
-    const trimMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.4,
-      metalness: 0.1,
-    });
-
-    // Foundation concrete / stone water table material
-    const foundationMat = new THREE.MeshStandardMaterial({
-      color: 0x94a3b8,
-      roughness: 0.9,
-      metalness: 0.05,
-    });
-
-    // Roof shingle material for side wing eaves
-    const roofMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.85,
-    });
-
-    // Copper / bronze gutter material
-    const gutterMat = new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0,
-      metalness: 0.6,
-      roughness: 0.3,
-    });
+    // Wind Waker Cel-Shaded Materials
+    const wallMat = createToonMaterial(0xfffbeb, { steps: 3 }); // Stucco cream wall
+    const trimMat = createToonMaterial(0xf8fafc, { steps: 3 }); // Clean white trim
+    const timberMat = createToonMaterial(0xb45309, { steps: 3 }); // Warm Wind Waker timber
+    const foundationMat = createToonMaterial(0x94a3b8, { steps: 3 }); // Cobblestone base
+    const roofMat = createToonMaterial(0xe11d48, { steps: 3 }); // Terracotta clay roof
+    const shutterMat = createToonMaterial(0x38bdf8, { steps: 3 }); // Pastel sky blue shutters
 
     const fw = fixture.width;
     const fh = fixture.height;
@@ -116,79 +91,58 @@ export class HouseFacade {
     const leftWallHeight = sideWallHeight - foundHeight;
     const leftWall = new THREE.Mesh(
       new THREE.BoxGeometry(leftWidth, leftWallHeight, 0.35),
-      sidingMat
+      wallMat
     );
     leftWall.position.set(-wallTotalWidth / 2 + leftWidth / 2, foundHeight + leftWallHeight / 2, wallZ);
     leftWall.receiveShadow = true;
     this.exteriorWallGroup.add(leftWall);
 
-    // Add horizontal siding reveal grooves on Left Wall
-    for (let sy = foundHeight + 0.3; sy < sideWallHeight; sy += 0.42) {
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(leftWidth, 0.04, 0.38), sidingMat);
-      plank.position.set(-wallTotalWidth / 2 + leftWidth / 2, sy, wallZ + 0.015);
-      this.exteriorWallGroup.add(plank);
-    }
+    // Wind Waker Timber Beam accents on Left Wall
+    const leftPost = new THREE.Mesh(new THREE.BoxGeometry(0.35, leftWallHeight, 0.4), timberMat);
+    leftPost.position.set(openingLeft - 0.2, foundHeight + leftWallHeight / 2, wallZ);
+    this.exteriorWallGroup.add(leftPost);
 
     // 3. Right Exterior Wall Wing (Side of house to the right of window)
     const rightWall = new THREE.Mesh(
       new THREE.BoxGeometry(leftWidth, leftWallHeight, 0.35),
-      sidingMat
+      wallMat
     );
     rightWall.position.set(wallTotalWidth / 2 - leftWidth / 2, foundHeight + leftWallHeight / 2, wallZ);
     rightWall.receiveShadow = true;
     this.exteriorWallGroup.add(rightWall);
 
-    // Add horizontal siding reveal grooves on Right Wall
-    for (let sy = foundHeight + 0.3; sy < sideWallHeight; sy += 0.42) {
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(leftWidth, 0.04, 0.38), sidingMat);
-      plank.position.set(wallTotalWidth / 2 - leftWidth / 2, sy, wallZ + 0.015);
-      this.exteriorWallGroup.add(plank);
-    }
+    const rightPost = new THREE.Mesh(new THREE.BoxGeometry(0.35, leftWallHeight, 0.4), timberMat);
+    rightPost.position.set(openingRight + 0.2, foundHeight + leftWallHeight / 2, wallZ);
+    this.exteriorWallGroup.add(rightPost);
 
     // 4. Wall Section Under Window (if window is raised above foundation)
     if (!isDoor && openingBottom > foundHeight) {
       const underHeight = openingBottom - foundHeight;
       const underWall = new THREE.Mesh(
         new THREE.BoxGeometry(fw, underHeight, 0.35),
-        sidingMat
+        wallMat
       );
       underWall.position.set(0, foundHeight + underHeight / 2, wallZ);
       underWall.receiveShadow = true;
       this.exteriorWallGroup.add(underWall);
-
-      for (let sy = foundHeight + 0.2; sy < openingBottom; sy += 0.38) {
-        const plank = new THREE.Mesh(new THREE.BoxGeometry(fw, 0.04, 0.38), sidingMat);
-        plank.position.set(0, sy, wallZ + 0.015);
-        this.exteriorWallGroup.add(plank);
-      }
     }
 
-    // 5. Architectural Window Header Casing & Crown Trim (Framing top of window without blocking view)
+    // 5. Architectural Window Header Casing & Crown Trim
     const casingThickness = 0.28;
     const casingDepth = 0.12;
 
-    // Header Trim / Drip Cap directly above the window sash
     const headerCasing = new THREE.Mesh(
       new THREE.BoxGeometry(fw + 0.7, casingThickness, casingDepth),
-      trimMat
+      timberMat
     );
     headerCasing.position.set(0, openingTop + casingThickness / 2, wallZ - 0.14);
     headerCasing.castShadow = true;
     this.exteriorWallGroup.add(headerCasing);
 
-    // Decorative Crown Pediment above Header
-    const pediment = new THREE.Mesh(
-      new THREE.BoxGeometry(fw + 0.95, 0.14, casingDepth + 0.08),
-      trimMat
-    );
-    pediment.position.set(0, openingTop + casingThickness + 0.07, wallZ - 0.16);
-    pediment.castShadow = true;
-    this.exteriorWallGroup.add(pediment);
-
     // Left Jamb Casing
     const leftCasing = new THREE.Mesh(
       new THREE.BoxGeometry(casingThickness, fh, casingDepth),
-      trimMat
+      timberMat
     );
     leftCasing.position.set(openingLeft - casingThickness / 2, openingBottom + fh / 2, wallZ - 0.14);
     leftCasing.castShadow = true;
@@ -199,23 +153,19 @@ export class HouseFacade {
     rightCasing.position.x = openingRight + casingThickness / 2;
     this.exteriorWallGroup.add(rightCasing);
 
-    // Bottom Sill / Apron Trim
+    // Bottom Sill Trim
     if (!isDoor) {
       const sillTrim = new THREE.Mesh(
         new THREE.BoxGeometry(fw + 0.65, 0.18, 0.22),
-        trimMat
+        timberMat
       );
       sillTrim.position.set(0, openingBottom - 0.09, wallZ - 0.18);
       sillTrim.castShadow = true;
       this.exteriorWallGroup.add(sillTrim);
     }
 
-    // 6. Decorative Shutters on left and right for standard windows
+    // 6. Wind Waker Pastel Sky-Blue Shutters
     if (!isDoor && fw <= 8.5) {
-      const shutterMat = new THREE.MeshStandardMaterial({
-        color: 0x1e3a8a, // Classic colonial navy blue shutters
-        roughness: 0.5,
-      });
       const shutterWidth = 0.85;
       const leftShutter = new THREE.Mesh(
         new THREE.BoxGeometry(shutterWidth, fh * 0.95, 0.08),
@@ -225,34 +175,32 @@ export class HouseFacade {
       leftShutter.castShadow = true;
       this.exteriorWallGroup.add(leftShutter);
 
-      // Louvers on left shutter
-      for (let ly = -fh * 0.42; ly <= fh * 0.42; ly += 0.22) {
-        const louver = new THREE.Mesh(new THREE.BoxGeometry(shutterWidth - 0.1, 0.04, 0.03), trimMat);
-        louver.position.set(leftShutter.position.x, leftShutter.position.y + ly, wallZ - 0.19);
-        this.exteriorWallGroup.add(louver);
-      }
+      // Gold hinge accents on left shutter
+      const hingeMat = createToonMaterial(0xfacc15, { steps: 3 });
+      const hinge1 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.06, 0.04), hingeMat);
+      hinge1.position.set(leftShutter.position.x + shutterWidth / 2 - 0.1, leftShutter.position.y + fh * 0.35, wallZ - 0.19);
+      this.exteriorWallGroup.add(hinge1);
+
+      const hinge2 = hinge1.clone();
+      hinge2.position.y = leftShutter.position.y - fh * 0.35;
+      this.exteriorWallGroup.add(hinge2);
 
       const rightShutter = leftShutter.clone();
       rightShutter.position.x = openingRight + casingThickness + shutterWidth / 2 + 0.06;
       this.exteriorWallGroup.add(rightShutter);
 
-      // Louvers on right shutter
-      for (let ly = -fh * 0.42; ly <= fh * 0.42; ly += 0.22) {
-        const louver = new THREE.Mesh(new THREE.BoxGeometry(shutterWidth - 0.1, 0.04, 0.03), trimMat);
-        louver.position.set(rightShutter.position.x, rightShutter.position.y + ly, wallZ - 0.19);
-        this.exteriorWallGroup.add(louver);
-      }
+      const hinge3 = hinge1.clone();
+      hinge3.position.x = rightShutter.position.x - shutterWidth / 2 + 0.1;
+      this.exteriorWallGroup.add(hinge3);
+
+      const hinge4 = hinge2.clone();
+      hinge4.position.x = rightShutter.position.x - shutterWidth / 2 + 0.1;
+      this.exteriorWallGroup.add(hinge4);
     }
 
-    // 7. Outdoor Carriage Lantern Sconces (Flanking left and right on the house wall)
-    const lanternMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      metalness: 0.8,
-      roughness: 0.3,
-    });
-    const lanternGlowMat = new THREE.MeshBasicMaterial({
-      color: 0xfef08a,
-    });
+    // 7. Wind Waker Island Lantern Sconces
+    const lanternMat = createToonMaterial(0x1e1b4b, { steps: 3 });
+    const lanternGlowMat = createToonMaterial(0xfef08a, { steps: 3 });
 
     const sconceOffsets = [
       openingLeft - casingThickness - 1.4,
@@ -266,36 +214,32 @@ export class HouseFacade {
       const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.28, 0.22), lanternMat);
       sconceGroup.add(bracket);
 
-      const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.4, 6), lanternMat);
+      const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.38, 6), lanternMat);
       cage.position.set(0, 0, -0.2);
       sconceGroup.add(cage);
 
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), lanternGlowMat);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), lanternGlowMat);
       bulb.position.set(0, 0, -0.2);
       sconceGroup.add(bulb);
 
-      const hat = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.16, 6), lanternMat);
-      hat.position.set(0, 0.25, -0.2);
+      const hat = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.18, 6), roofMat);
+      hat.position.set(0, 0.26, -0.2);
       sconceGroup.add(hat);
 
       this.exteriorWallGroup.add(sconceGroup);
     });
 
-    // 8. Side Wing Rooflines and Gutters (Only on the left and right wings, leaving the center clear)
+    // 8. Side Wing Terracotta Eaves (Only on left and right wings, central lane open)
     const buildWingRoof = (centerX: number, width: number) => {
       const eavesY = sideWallHeight;
-      const roof = new THREE.Mesh(new THREE.BoxGeometry(width + 0.8, 0.18, 1.4), trimMat);
-      roof.position.set(centerX, eavesY + 0.09, wallZ - 0.2);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(width + 0.8, 0.22, 1.4), timberMat);
+      roof.position.set(centerX, eavesY + 0.11, wallZ - 0.2);
       this.exteriorWallGroup.add(roof);
 
       const slopedRoof = new THREE.Mesh(new THREE.PlaneGeometry(width + 0.8, 3.2), roofMat);
       slopedRoof.rotation.x = Math.PI / 5;
       slopedRoof.position.set(centerX, eavesY + 0.8, wallZ + 0.8);
       this.exteriorWallGroup.add(slopedRoof);
-
-      const gutter = new THREE.Mesh(new THREE.BoxGeometry(width + 0.8, 0.16, 0.14), gutterMat);
-      gutter.position.set(centerX, eavesY + 0.05, wallZ - 0.85);
-      this.exteriorWallGroup.add(gutter);
     };
 
     const leftWingCenter = -wallTotalWidth / 2 + leftWidth / 2;
@@ -303,13 +247,9 @@ export class HouseFacade {
     buildWingRoof(leftWingCenter, leftWidth);
     buildWingRoof(rightWingCenter, leftWidth);
 
-    // 9. Patio Platform Deck for Doors or Foundation Garden Beds for Windows
+    // 9. Honey Cedar Platform Deck for Patio Doors or Garden Tufts for Windows
     if (isDoor) {
-      const deckMat = new THREE.MeshStandardMaterial({
-        color: 0xb45309, // Warm cedar deck
-        roughness: 0.65,
-        metalness: 0.05,
-      });
+      const deckMat = createToonMaterial(0xd97706, { steps: 3 });
       const deckWidth = fw + 3.5;
       const deckDepth = 4.0;
       const deck = new THREE.Mesh(
@@ -319,17 +259,8 @@ export class HouseFacade {
       deck.position.set(0, 0.07, wallZ - deckDepth / 2 - 0.08);
       deck.receiveShadow = true;
       this.exteriorWallGroup.add(deck);
-
-      for (let dz = -deckDepth + 0.3; dz <= 0; dz += 0.35) {
-        const seam = new THREE.Mesh(new THREE.BoxGeometry(deckWidth, 0.02, 0.02), trimMat);
-        seam.position.set(0, 0.145, wallZ + dz);
-        this.exteriorWallGroup.add(seam);
-      }
     } else {
-      const shrubMat = new THREE.MeshStandardMaterial({
-        color: 0x166534,
-        roughness: 0.9,
-      });
+      const shrubMat = createToonMaterial(0x16a34a, { steps: 3 });
       const shrubPositions = [
         openingLeft - 1.2,
         openingLeft + fw * 0.25,
@@ -337,7 +268,7 @@ export class HouseFacade {
         openingRight + 1.2,
       ];
       shrubPositions.forEach((bx) => {
-        const shrub = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), shrubMat);
+        const shrub = new THREE.Mesh(new THREE.SphereGeometry(0.52, 8, 8), shrubMat);
         shrub.scale.set(1.2, 0.75, 0.9);
         shrub.position.set(bx, 0.42, wallZ - 0.45);
         shrub.castShadow = true;
@@ -346,9 +277,6 @@ export class HouseFacade {
     }
   }
 
-  /**
-   * Subtle interior elements behind the window glass without blocking camera sightlines
-   */
   private buildSubtleInterior(fixture: FixtureSpec) {
     const fw = fixture.width;
     const fh = fixture.height;
@@ -356,22 +284,15 @@ export class HouseFacade {
     const openingBottom = isDoor ? 0.05 : 0.45;
     const openingY = openingBottom + fh / 2;
 
-    // Cozy mahogany floor plane inside the room
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x78350f,
-      roughness: 0.5,
-      metalness: 0.1,
-    });
+    // Cozy honey wood floor plane inside the room
+    const floorMat = createToonMaterial(0x92400e, { steps: 3 });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw + 4.0, 4.0), floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(0, openingBottom - 0.02, 2.2);
     this.interiorGroup.add(floor);
 
-    // Curtains framing the interior edges
-    const curtainMat = new THREE.MeshStandardMaterial({
-      color: 0x991b1b, // Ruby red velvet curtains
-      roughness: 0.7,
-    });
+    // Cheerful curtains framing the interior edges
+    const curtainMat = createToonMaterial(0xf43f5e, { steps: 3 });
     const curtainW = 0.5;
     const leftCurtain = new THREE.Mesh(
       new THREE.BoxGeometry(curtainW, fh * 0.95, 0.15),

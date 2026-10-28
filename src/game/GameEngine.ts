@@ -117,38 +117,38 @@ export class GameEngine {
 
     // 2. Camera Setup (Dynamic responsive lane perspective)
     const aspect = container.clientWidth / container.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(56, aspect, 0.1, 140);
-    this.camera.position.set(0, 6.8, 8.5);
+    this.camera = new THREE.PerspectiveCamera(54, aspect, 0.1, 140);
+    this.camera.position.set(0, 5.8, 6.2);
     this.camera.lookAt(this.targetLookAt);
 
-    // 3. WebGL Renderer with High-Fidelity ACESFilmic Tone Mapping
+    // 3. WebGL Renderer with Calibrated Tone Mapping (Reduced Luminance)
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 0.95; // Gentle, glare-free luminance
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
 
-    // 4. Procedural Studio Environment for realistic glass & metal reflections
+    // 4. Procedural Studio Environment for clean cartoon material reflections
     const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
     pmremGenerator.dispose();
 
-    // 5. Cinematic 3-Point Hollywood Lighting Setup
-    // A. Ambient & Sky Hemisphere Bounce (Warm grass ground bounce + sky blue top)
-    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x166534, 0.7);
+    // 5. Wind Waker Cel-Shaded Lighting Rig
+    // A. Ambient & Sky Hemisphere Bounce (Tropical blue sky + lush green lawn)
+    const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x22c55e, 0.7);
     this.scene.add(hemiLight);
 
-    // B. Golden Key Sunlight (Crisp directional sunlight with soft PCF shadow edges)
-    const dirLight = new THREE.DirectionalLight(0xfffaed, 1.45);
-    dirLight.position.set(14, 24, 12);
+    // B. Warm Cartoon Sunlight (Directional sun with soft shadow edges)
+    const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.15);
+    dirLight.position.set(12, 22, 12);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.radius = 2.4;
+    dirLight.shadow.radius = 2.0;
     dirLight.shadow.camera.near = 0.5;
     dirLight.shadow.camera.far = 70;
     const d = 18;
@@ -159,25 +159,25 @@ export class GameEngine {
     dirLight.shadow.bias = -0.0003;
     this.scene.add(dirLight);
 
-    // C. Soft Rim Backlight (Accentuates silhouette from the side/back without blinding the camera)
-    const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.45);
-    rimLight.position.set(-15, 18, -25);
-    rimLight.target.position.set(0, 1.5, 0);
-    this.scene.add(rimLight);
-    this.scene.add(rimLight.target);
+    // C. Soft Front-Side Fill Light (Fills shadows without direct camera glare)
+    const fillLight = new THREE.DirectionalLight(0xbae6fd, 0.35);
+    fillLight.position.set(-14, 14, 8);
+    fillLight.target.position.set(0, 1.5, -5.0);
+    this.scene.add(fillLight);
+    this.scene.add(fillLight.target);
 
-    // D. Soft Interior Room Light spill through the window glass
-    const interiorPoint = new THREE.PointLight(0xfef08a, 0.35, 8);
-    interiorPoint.position.set(0, 2.0, 1.2);
+    // D. Subtle Warm Interior Room Light spill
+    const interiorPoint = new THREE.PointLight(0xfef08a, 0.2, 6);
+    interiorPoint.position.set(0, 1.8, 1.2);
     this.scene.add(interiorPoint);
 
-    // 6. Post-Processing Pipeline (EffectComposer + Bloom + ACES Color Tone Mapping)
+    // 6. Post-Processing Pipeline (Crisp, clean cel lines with minimal bloom)
     const renderPass = new RenderPass(this.scene, this.camera);
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(container.clientWidth, container.clientHeight),
-      0.22, // Bloom strength (clean movie glow on sparks, lights, coins without blinding washout)
-      0.35, // Bloom radius
-      0.88  // Bloom threshold (prevents white haze on walls and driveway)
+      0.08, // Very subtle bloom to avoid washed-out luminance
+      0.25, // Bloom radius
+      0.92  // High threshold to protect cartoon textures and lines
     );
     const outputPass = new OutputPass();
 
@@ -190,16 +190,16 @@ export class GameEngine {
     this.environment = new SuburbanEnvironment();
     this.scene.add(this.environment.group);
 
-    // Realistic Suburban House Wall Facade framing the window/patio door
+    // Wind Waker Cottage Wall Facade framing the window/patio door
     this.houseFacade = new HouseFacade();
     this.scene.add(this.houseFacade.group);
 
     this.particleSystem = new ParticleSystem(this.scene);
     this.hazardManager = new HazardManager(this.scene);
 
-    // 7. Character Rig
+    // 7. Character Rig (Moved forward to z = -5.0 so he is clearly in front of window)
     this.character = new MrRogersCharacter();
-    this.character.group.position.set(0, 0, -2.5); // Guarding right in front of window
+    this.character.group.position.set(0, 0, -5.0);
     this.scene.add(this.character.group);
 
     // 8. Level Config & Fixture Initialization
@@ -233,11 +233,11 @@ export class GameEngine {
       const halfW = (fixtureWidth / 2) * 1.35;
       const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(fov / 2));
       const neededDist = halfW / (tanHalfFov * Math.max(0.42, aspect));
-      const targetZ = this.isZoomedOut ? Math.max(12.5, neededDist) : Math.max(9.0, neededDist * 0.75);
-      const targetY = 7.2 + (targetZ - 0.2) * 0.40; // Higher POV elevation
+      const targetZ = this.isZoomedOut ? Math.max(8.5, neededDist * 0.75) : Math.max(6.5, neededDist * 0.65);
+      const targetY = 6.4 + (targetZ - 0.2) * 0.34;
 
       this.targetCameraPos.set(0, targetY, targetZ);
-      this.targetLookAt.set(0, 1.25, -9.5);
+      this.targetLookAt.set(0, 1.25, -13.0);
     } else {
       // Landscape or Desktop: elevated arcade view
       const fov = this.isZoomedOut ? 56 : 48;
@@ -247,11 +247,11 @@ export class GameEngine {
       const halfW = (fixtureWidth / 2) * 1.3;
       const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(fov / 2));
       const neededDist = halfW / (tanHalfFov * aspect);
-      const targetZ = this.isZoomedOut ? Math.max(8.5, neededDist) : Math.max(6.8, neededDist * 0.8);
-      const targetY = 6.4 + (targetZ - 0.2) * 0.32; // Higher POV elevation
+      const targetZ = this.isZoomedOut ? Math.max(5.8, neededDist * 0.75) : Math.max(4.2, neededDist * 0.6);
+      const targetY = 5.2 + (targetZ - 0.2) * 0.28;
 
       this.targetCameraPos.set(0, targetY, targetZ);
-      this.targetLookAt.set(0, 1.35, -12.0);
+      this.targetLookAt.set(0, 1.3, -15.0);
     }
 
     this.camera.aspect = aspect;
@@ -414,7 +414,7 @@ export class GameEngine {
     this.addFovPunch(2.4);
     this.callbacks.onScreenShake('severe');
 
-    const origin = new THREE.Vector3(this.playerX, 1.0, -2.5);
+    const origin = new THREE.Vector3(this.playerX, 1.0, -5.0);
     this.particleSystem.emitShockwave(origin);
 
     const pulverized = this.hazardManager.clearHazardsInRadius(origin, 15.0);
@@ -567,8 +567,8 @@ export class GameEngine {
       }
 
       // 4. Coin pickups
-      const playerWorldPos = new THREE.Vector3(this.playerX, 1.0, -2.5);
-      const pickedCoins = this.hazardManager.checkCoinPickups(playerWorldPos, 1.6);
+      const playerWorldPos = new THREE.Vector3(this.playerX, 1.0, -5.0);
+      const pickedCoins = this.hazardManager.checkCoinPickups(playerWorldPos, 1.8);
       if (pickedCoins.length > 0) {
         pickedCoins.forEach((c) => {
           soundEngine.playCoin();
