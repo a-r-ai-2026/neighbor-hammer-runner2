@@ -117,8 +117,8 @@ export class GameEngine {
 
     // 2. Camera Setup (Dynamic responsive lane perspective)
     const aspect = container.clientWidth / container.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(65, aspect, 0.1, 140);
-    this.camera.position.set(0, 8.0, 14.0);
+    this.camera = new THREE.PerspectiveCamera(56, aspect, 0.1, 140);
+    this.camera.position.set(0, 6.8, 8.5);
     this.camera.lookAt(this.targetLookAt);
 
     // 3. WebGL Renderer with High-Fidelity ACESFilmic Tone Mapping
@@ -127,7 +127,7 @@ export class GameEngine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
@@ -139,11 +139,11 @@ export class GameEngine {
 
     // 5. Cinematic 3-Point Hollywood Lighting Setup
     // A. Ambient & Sky Hemisphere Bounce (Warm grass ground bounce + sky blue top)
-    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x166534, 0.75);
+    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x166534, 0.7);
     this.scene.add(hemiLight);
 
     // B. Golden Key Sunlight (Crisp directional sunlight with soft PCF shadow edges)
-    const dirLight = new THREE.DirectionalLight(0xfffaed, 1.85);
+    const dirLight = new THREE.DirectionalLight(0xfffaed, 1.45);
     dirLight.position.set(14, 24, 12);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
@@ -159,25 +159,25 @@ export class GameEngine {
     dirLight.shadow.bias = -0.0003;
     this.scene.add(dirLight);
 
-    // C. Cyan Rim Backlight (Creates animated film silhouette separation from behind)
-    const rimLight = new THREE.DirectionalLight(0x7dd3fc, 1.35);
-    rimLight.position.set(-10, 18, -38);
+    // C. Soft Rim Backlight (Accentuates silhouette from the side/back without blinding the camera)
+    const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.45);
+    rimLight.position.set(-15, 18, -25);
     rimLight.target.position.set(0, 1.5, 0);
     this.scene.add(rimLight);
     this.scene.add(rimLight.target);
 
-    // D. Cozy Warm Interior Room Light spill through the window glass
-    const interiorPoint = new THREE.PointLight(0xfef08a, 1.2, 16);
-    interiorPoint.position.set(0, 2.5, 0.4);
+    // D. Soft Interior Room Light spill through the window glass
+    const interiorPoint = new THREE.PointLight(0xfef08a, 0.35, 8);
+    interiorPoint.position.set(0, 2.0, 1.2);
     this.scene.add(interiorPoint);
 
     // 6. Post-Processing Pipeline (EffectComposer + Bloom + ACES Color Tone Mapping)
     const renderPass = new RenderPass(this.scene, this.camera);
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(container.clientWidth, container.clientHeight),
-      0.36, // Bloom strength (tasteful movie glow on sparks, lights, coins)
-      0.45, // Bloom radius
-      0.78  // Bloom threshold (prevents sky/ground blowout)
+      0.22, // Bloom strength (clean movie glow on sparks, lights, coins without blinding washout)
+      0.35, // Bloom radius
+      0.88  // Bloom threshold (prevents white haze on walls and driveway)
     );
     const outputPass = new OutputPass();
 
@@ -226,32 +226,32 @@ export class GameEngine {
 
     if (isPortrait) {
       // For mobile portrait, dynamically pull camera higher up and back so lane, hazards, and house wall fit
-      const fov = this.isZoomedOut ? Math.min(76, 62 + (1 - aspect) * 20) : 58;
+      const fov = this.isZoomedOut ? Math.min(74, 60 + (1 - aspect) * 18) : 56;
       this.baseFov = fov;
       this.camera.fov = fov;
 
       const halfW = (fixtureWidth / 2) * 1.35;
       const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(fov / 2));
       const neededDist = halfW / (tanHalfFov * Math.max(0.42, aspect));
-      const targetZ = this.isZoomedOut ? Math.max(14.5, neededDist) : Math.max(10.0, neededDist * 0.75);
-      const targetY = 7.8 + (targetZ - 0.2) * 0.44; // Higher POV elevation
+      const targetZ = this.isZoomedOut ? Math.max(12.5, neededDist) : Math.max(9.0, neededDist * 0.75);
+      const targetY = 7.2 + (targetZ - 0.2) * 0.40; // Higher POV elevation
 
       this.targetCameraPos.set(0, targetY, targetZ);
-      this.targetLookAt.set(0, 1.2, -8.5);
+      this.targetLookAt.set(0, 1.25, -9.5);
     } else {
       // Landscape or Desktop: elevated arcade view
-      const fov = this.isZoomedOut ? 58 : 50;
+      const fov = this.isZoomedOut ? 56 : 48;
       this.baseFov = fov;
       this.camera.fov = fov;
 
       const halfW = (fixtureWidth / 2) * 1.3;
       const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(fov / 2));
       const neededDist = halfW / (tanHalfFov * aspect);
-      const targetZ = this.isZoomedOut ? Math.max(9.5, neededDist) : Math.max(7.2, neededDist * 0.8);
-      const targetY = 6.6 + (targetZ - 0.2) * 0.34; // Higher POV elevation
+      const targetZ = this.isZoomedOut ? Math.max(8.5, neededDist) : Math.max(6.8, neededDist * 0.8);
+      const targetY = 6.4 + (targetZ - 0.2) * 0.32; // Higher POV elevation
 
       this.targetCameraPos.set(0, targetY, targetZ);
-      this.targetLookAt.set(0, 1.2, -10.5);
+      this.targetLookAt.set(0, 1.35, -12.0);
     }
 
     this.camera.aspect = aspect;

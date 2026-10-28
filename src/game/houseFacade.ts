@@ -39,17 +39,16 @@ export class HouseFacade {
     }
 
     this.buildHouseWall(fixture);
-    this.buildCozyInterior(fixture);
+    this.buildSubtleInterior(fixture);
   }
 
   private buildHouseWall(fixture: FixtureSpec) {
-    const wallTotalWidth = 40;
-    const wallHeight = 13.5;
+    const wallTotalWidth = 42;
     const wallZ = 0.25;
 
     // Siding material (crisp suburban horizontal clapboard siding)
     const sidingMat = new THREE.MeshStandardMaterial({
-      color: 0x475569, // Modern slate siding
+      color: 0x475569, // Modern slate grey siding
       roughness: 0.75,
       metalness: 0.05,
     });
@@ -61,14 +60,14 @@ export class HouseFacade {
       metalness: 0.1,
     });
 
-    // Foundation brick / concrete water table material
+    // Foundation concrete / stone water table material
     const foundationMat = new THREE.MeshStandardMaterial({
       color: 0x94a3b8,
       roughness: 0.9,
       metalness: 0.05,
     });
 
-    // Roof shingle material
+    // Roof shingle material for side wing eaves
     const roofMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
       roughness: 0.85,
@@ -88,8 +87,11 @@ export class HouseFacade {
     // Opening coordinates
     const openingLeft = -fw / 2;
     const openingRight = fw / 2;
-    const openingBottom = isDoor ? 0.05 : 0.4;
+    const openingBottom = isDoor ? 0.05 : 0.45;
     const openingTop = openingBottom + fh;
+
+    // Flanking side wall height (comfortably frames the window on the sides without occluding camera)
+    const sideWallHeight = Math.max(5.5, openingTop + 1.2);
 
     // 1. Foundation Base Wall (Runs full width at bottom ground level)
     const foundHeight = 0.65;
@@ -109,40 +111,41 @@ export class HouseFacade {
     cap.position.set(0, foundHeight + 0.06, wallZ + 0.02);
     this.exteriorWallGroup.add(cap);
 
-    // 2. Left Exterior Wall Block
+    // 2. Left Exterior Wall Wing (Side of house to the left of window)
     const leftWidth = (wallTotalWidth - fw) / 2;
+    const leftWallHeight = sideWallHeight - foundHeight;
     const leftWall = new THREE.Mesh(
-      new THREE.BoxGeometry(leftWidth, wallHeight - foundHeight, 0.35),
+      new THREE.BoxGeometry(leftWidth, leftWallHeight, 0.35),
       sidingMat
     );
-    leftWall.position.set(-wallTotalWidth / 2 + leftWidth / 2, foundHeight + (wallHeight - foundHeight) / 2, wallZ);
+    leftWall.position.set(-wallTotalWidth / 2 + leftWidth / 2, foundHeight + leftWallHeight / 2, wallZ);
     leftWall.receiveShadow = true;
     this.exteriorWallGroup.add(leftWall);
 
     // Add horizontal siding reveal grooves on Left Wall
-    for (let sy = foundHeight + 0.3; sy < wallHeight; sy += 0.42) {
+    for (let sy = foundHeight + 0.3; sy < sideWallHeight; sy += 0.42) {
       const plank = new THREE.Mesh(new THREE.BoxGeometry(leftWidth, 0.04, 0.38), sidingMat);
       plank.position.set(-wallTotalWidth / 2 + leftWidth / 2, sy, wallZ + 0.015);
       this.exteriorWallGroup.add(plank);
     }
 
-    // 3. Right Exterior Wall Block
+    // 3. Right Exterior Wall Wing (Side of house to the right of window)
     const rightWall = new THREE.Mesh(
-      new THREE.BoxGeometry(leftWidth, wallHeight - foundHeight, 0.35),
+      new THREE.BoxGeometry(leftWidth, leftWallHeight, 0.35),
       sidingMat
     );
-    rightWall.position.set(wallTotalWidth / 2 - leftWidth / 2, foundHeight + (wallHeight - foundHeight) / 2, wallZ);
+    rightWall.position.set(wallTotalWidth / 2 - leftWidth / 2, foundHeight + leftWallHeight / 2, wallZ);
     rightWall.receiveShadow = true;
     this.exteriorWallGroup.add(rightWall);
 
     // Add horizontal siding reveal grooves on Right Wall
-    for (let sy = foundHeight + 0.3; sy < wallHeight; sy += 0.42) {
+    for (let sy = foundHeight + 0.3; sy < sideWallHeight; sy += 0.42) {
       const plank = new THREE.Mesh(new THREE.BoxGeometry(leftWidth, 0.04, 0.38), sidingMat);
       plank.position.set(wallTotalWidth / 2 - leftWidth / 2, sy, wallZ + 0.015);
       this.exteriorWallGroup.add(plank);
     }
 
-    // 4. Wall Section Under Window (if window has apron sill)
+    // 4. Wall Section Under Window (if window is raised above foundation)
     if (!isDoor && openingBottom > foundHeight) {
       const underHeight = openingBottom - foundHeight;
       const underWall = new THREE.Mesh(
@@ -160,34 +163,16 @@ export class HouseFacade {
       }
     }
 
-    // 5. Wall Section Above Window Header
-    const topHeight = wallHeight - openingTop;
-    if (topHeight > 0) {
-      const topWall = new THREE.Mesh(
-        new THREE.BoxGeometry(fw, topHeight, 0.35),
-        sidingMat
-      );
-      topWall.position.set(0, openingTop + topHeight / 2, wallZ);
-      topWall.receiveShadow = true;
-      this.exteriorWallGroup.add(topWall);
-
-      for (let sy = openingTop + 0.3; sy < wallHeight; sy += 0.42) {
-        const plank = new THREE.Mesh(new THREE.BoxGeometry(fw, 0.04, 0.38), sidingMat);
-        plank.position.set(0, sy, wallZ + 0.015);
-        this.exteriorWallGroup.add(plank);
-      }
-    }
-
-    // 6. Exterior Architectural Casing & Trim around Window/Door
+    // 5. Architectural Window Header Casing & Crown Trim (Framing top of window without blocking view)
     const casingThickness = 0.28;
     const casingDepth = 0.12;
 
-    // Header Trim / Drip Cap
+    // Header Trim / Drip Cap directly above the window sash
     const headerCasing = new THREE.Mesh(
       new THREE.BoxGeometry(fw + 0.7, casingThickness, casingDepth),
       trimMat
     );
-    headerCasing.position.set(0, openingTop + casingThickness / 2, wallZ - 0.16);
+    headerCasing.position.set(0, openingTop + casingThickness / 2, wallZ - 0.14);
     headerCasing.castShadow = true;
     this.exteriorWallGroup.add(headerCasing);
 
@@ -196,7 +181,7 @@ export class HouseFacade {
       new THREE.BoxGeometry(fw + 0.95, 0.14, casingDepth + 0.08),
       trimMat
     );
-    pediment.position.set(0, openingTop + casingThickness + 0.07, wallZ - 0.18);
+    pediment.position.set(0, openingTop + casingThickness + 0.07, wallZ - 0.16);
     pediment.castShadow = true;
     this.exteriorWallGroup.add(pediment);
 
@@ -205,7 +190,7 @@ export class HouseFacade {
       new THREE.BoxGeometry(casingThickness, fh, casingDepth),
       trimMat
     );
-    leftCasing.position.set(openingLeft - casingThickness / 2, openingBottom + fh / 2, wallZ - 0.16);
+    leftCasing.position.set(openingLeft - casingThickness / 2, openingBottom + fh / 2, wallZ - 0.14);
     leftCasing.castShadow = true;
     this.exteriorWallGroup.add(leftCasing);
 
@@ -220,45 +205,46 @@ export class HouseFacade {
         new THREE.BoxGeometry(fw + 0.65, 0.18, 0.22),
         trimMat
       );
-      sillTrim.position.set(0, openingBottom - 0.09, wallZ - 0.2);
+      sillTrim.position.set(0, openingBottom - 0.09, wallZ - 0.18);
       sillTrim.castShadow = true;
       this.exteriorWallGroup.add(sillTrim);
     }
 
-    // 7. Decorative Window Shutters (for standard/casement/double-hung windows)
+    // 6. Decorative Shutters on left and right for standard windows
     if (!isDoor && fw <= 8.5) {
       const shutterMat = new THREE.MeshStandardMaterial({
         color: 0x1e3a8a, // Classic colonial navy blue shutters
         roughness: 0.5,
       });
-      const shutterWidth = 0.9;
+      const shutterWidth = 0.85;
       const leftShutter = new THREE.Mesh(
         new THREE.BoxGeometry(shutterWidth, fh * 0.95, 0.08),
         shutterMat
       );
-      leftShutter.position.set(openingLeft - casingThickness - shutterWidth / 2 - 0.05, openingBottom + fh / 2, wallZ - 0.16);
+      leftShutter.position.set(openingLeft - casingThickness - shutterWidth / 2 - 0.06, openingBottom + fh / 2, wallZ - 0.14);
       leftShutter.castShadow = true;
       this.exteriorWallGroup.add(leftShutter);
 
-      // Louvers on shutter
+      // Louvers on left shutter
       for (let ly = -fh * 0.42; ly <= fh * 0.42; ly += 0.22) {
-        const louver = new THREE.Mesh(new THREE.BoxGeometry(shutterWidth - 0.1, 0.04, 0.04), trimMat);
-        louver.position.set(leftShutter.position.x, leftShutter.position.y + ly, wallZ - 0.21);
+        const louver = new THREE.Mesh(new THREE.BoxGeometry(shutterWidth - 0.1, 0.04, 0.03), trimMat);
+        louver.position.set(leftShutter.position.x, leftShutter.position.y + ly, wallZ - 0.19);
         this.exteriorWallGroup.add(louver);
       }
 
       const rightShutter = leftShutter.clone();
-      rightShutter.position.x = openingRight + casingThickness + shutterWidth / 2 + 0.05;
+      rightShutter.position.x = openingRight + casingThickness + shutterWidth / 2 + 0.06;
       this.exteriorWallGroup.add(rightShutter);
 
+      // Louvers on right shutter
       for (let ly = -fh * 0.42; ly <= fh * 0.42; ly += 0.22) {
-        const louver = new THREE.Mesh(new THREE.BoxGeometry(shutterWidth - 0.1, 0.04, 0.04), trimMat);
-        louver.position.set(rightShutter.position.x, rightShutter.position.y + ly, wallZ - 0.21);
+        const louver = new THREE.Mesh(new THREE.BoxGeometry(shutterWidth - 0.1, 0.04, 0.03), trimMat);
+        louver.position.set(rightShutter.position.x, rightShutter.position.y + ly, wallZ - 0.19);
         this.exteriorWallGroup.add(louver);
       }
     }
 
-    // 8. Outdoor Wall Carriage Lantern Sconces (Flanking left and right)
+    // 7. Outdoor Carriage Lantern Sconces (Flanking left and right on the house wall)
     const lanternMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
       metalness: 0.8,
@@ -269,112 +255,77 @@ export class HouseFacade {
     });
 
     const sconceOffsets = [
-      openingLeft - casingThickness - 1.5,
-      openingRight + casingThickness + 1.5,
+      openingLeft - casingThickness - 1.4,
+      openingRight + casingThickness + 1.4,
     ];
 
     sconceOffsets.forEach((sx) => {
       const sconceGroup = new THREE.Group();
-      sconceGroup.position.set(sx, openingBottom + fh * 0.65, wallZ - 0.18);
+      sconceGroup.position.set(sx, openingBottom + fh * 0.65, wallZ - 0.16);
 
-      // Mount bracket
-      const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.25), lanternMat);
+      const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.28, 0.22), lanternMat);
       sconceGroup.add(bracket);
 
-      // Lantern cage
-      const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.45, 6), lanternMat);
-      cage.position.set(0, 0, -0.22);
+      const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.4, 6), lanternMat);
+      cage.position.set(0, 0, -0.2);
       sconceGroup.add(cage);
 
-      // Glowing filament
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), lanternGlowMat);
-      bulb.position.set(0, 0, -0.22);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), lanternGlowMat);
+      bulb.position.set(0, 0, -0.2);
       sconceGroup.add(bulb);
 
-      // Sconce roof hat
-      const hat = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.18, 6), lanternMat);
-      hat.position.set(0, 0.28, -0.22);
+      const hat = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.16, 6), lanternMat);
+      hat.position.set(0, 0.25, -0.2);
       sconceGroup.add(hat);
 
       this.exteriorWallGroup.add(sconceGroup);
     });
 
-    // 9. Roofline, Eaves, Soffit and Gutters along top of house wall
-    const roofEavesY = wallHeight;
-    const overhangZ = wallZ - 0.75;
+    // 8. Side Wing Rooflines and Gutters (Only on the left and right wings, leaving the center clear)
+    const buildWingRoof = (centerX: number, width: number) => {
+      const eavesY = sideWallHeight;
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(width + 0.8, 0.18, 1.4), trimMat);
+      roof.position.set(centerX, eavesY + 0.09, wallZ - 0.2);
+      this.exteriorWallGroup.add(roof);
 
-    // Soffit underside
-    const soffit = new THREE.Mesh(
-      new THREE.BoxGeometry(wallTotalWidth + 2.0, 0.15, 1.2),
-      trimMat
-    );
-    soffit.position.set(0, roofEavesY - 0.08, overhangZ + 0.3);
-    this.exteriorWallGroup.add(soffit);
+      const slopedRoof = new THREE.Mesh(new THREE.PlaneGeometry(width + 0.8, 3.2), roofMat);
+      slopedRoof.rotation.x = Math.PI / 5;
+      slopedRoof.position.set(centerX, eavesY + 0.8, wallZ + 0.8);
+      this.exteriorWallGroup.add(slopedRoof);
 
-    // Fascia board
-    const fascia = new THREE.Mesh(
-      new THREE.BoxGeometry(wallTotalWidth + 2.0, 0.45, 0.12),
-      trimMat
-    );
-    fascia.position.set(0, roofEavesY + 0.1, overhangZ - 0.3);
-    this.exteriorWallGroup.add(fascia);
+      const gutter = new THREE.Mesh(new THREE.BoxGeometry(width + 0.8, 0.16, 0.14), gutterMat);
+      gutter.position.set(centerX, eavesY + 0.05, wallZ - 0.85);
+      this.exteriorWallGroup.add(gutter);
+    };
 
-    // Sloped Roof plane
-    const roof = new THREE.Mesh(
-      new THREE.PlaneGeometry(wallTotalWidth + 2.5, 6.0),
-      roofMat
-    );
-    roof.rotation.x = Math.PI / 5; // 36 degree roof pitch
-    roof.position.set(0, roofEavesY + 1.6, overhangZ + 1.8);
-    roof.receiveShadow = true;
-    this.exteriorWallGroup.add(roof);
+    const leftWingCenter = -wallTotalWidth / 2 + leftWidth / 2;
+    const rightWingCenter = wallTotalWidth / 2 - leftWidth / 2;
+    buildWingRoof(leftWingCenter, leftWidth);
+    buildWingRoof(rightWingCenter, leftWidth);
 
-    // Aluminum Gutters running entire roof edge
-    const gutter = new THREE.Mesh(
-      new THREE.BoxGeometry(wallTotalWidth + 2.2, 0.2, 0.16),
-      gutterMat
-    );
-    gutter.position.set(0, roofEavesY + 0.05, overhangZ - 0.4);
-    this.exteriorWallGroup.add(gutter);
-
-    // Vertical Downspouts on left and right corner of house
-    const downspoutL = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.08, wallHeight, 8),
-      gutterMat
-    );
-    downspoutL.position.set(-wallTotalWidth / 2 + 0.6, wallHeight / 2, wallZ - 0.2);
-    this.exteriorWallGroup.add(downspoutL);
-
-    const downspoutR = downspoutL.clone();
-    downspoutR.position.x = wallTotalWidth / 2 - 0.6;
-    this.exteriorWallGroup.add(downspoutR);
-
-    // 10. Patio Platform Deck for Patio Doors or Foundation Garden Beds for Windows
+    // 9. Patio Platform Deck for Doors or Foundation Garden Beds for Windows
     if (isDoor) {
-      // Elegant composite wood patio deck plank platform
       const deckMat = new THREE.MeshStandardMaterial({
-        color: 0xb45309, // Warm cedar/redwood deck
+        color: 0xb45309, // Warm cedar deck
         roughness: 0.65,
         metalness: 0.05,
       });
-      const deckWidth = fw + 4.0;
-      const deckDepth = 4.5;
+      const deckWidth = fw + 3.5;
+      const deckDepth = 4.0;
       const deck = new THREE.Mesh(
-        new THREE.BoxGeometry(deckWidth, 0.15, deckDepth),
+        new THREE.BoxGeometry(deckWidth, 0.14, deckDepth),
         deckMat
       );
-      deck.position.set(0, 0.075, wallZ - deckDepth / 2 - 0.1);
+      deck.position.set(0, 0.07, wallZ - deckDepth / 2 - 0.08);
       deck.receiveShadow = true;
       this.exteriorWallGroup.add(deck);
 
-      // Deck planks lines
       for (let dz = -deckDepth + 0.3; dz <= 0; dz += 0.35) {
         const seam = new THREE.Mesh(new THREE.BoxGeometry(deckWidth, 0.02, 0.02), trimMat);
-        seam.position.set(0, 0.155, wallZ + dz);
+        seam.position.set(0, 0.145, wallZ + dz);
         this.exteriorWallGroup.add(seam);
       }
     } else {
-      // Foundation evergreen shrubs planted under the window
       const shrubMat = new THREE.MeshStandardMaterial({
         color: 0x166534,
         roughness: 0.9,
@@ -386,9 +337,9 @@ export class HouseFacade {
         openingRight + 1.2,
       ];
       shrubPositions.forEach((bx) => {
-        const shrub = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 8), shrubMat);
+        const shrub = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), shrubMat);
         shrub.scale.set(1.2, 0.75, 0.9);
-        shrub.position.set(bx, 0.45, wallZ - 0.55);
+        shrub.position.set(bx, 0.42, wallZ - 0.45);
         shrub.castShadow = true;
         this.exteriorWallGroup.add(shrub);
       });
@@ -396,78 +347,41 @@ export class HouseFacade {
   }
 
   /**
-   * Build cozy indoor living room visible through the window glass
+   * Subtle interior elements behind the window glass without blocking camera sightlines
    */
-  private buildCozyInterior(fixture: FixtureSpec) {
+  private buildSubtleInterior(fixture: FixtureSpec) {
     const fw = fixture.width;
     const fh = fixture.height;
     const isDoor = fixture.category === 'door' || fixture.isPatioDoor;
-    const openingBottom = isDoor ? 0.05 : 0.4;
+    const openingBottom = isDoor ? 0.05 : 0.45;
     const openingY = openingBottom + fh / 2;
 
-    const roomW = fw + 6;
-    const roomH = fh + 4;
-    const roomD = 5.0;
-    const roomCenterZ = 0.3 + roomD / 2;
-
-    // Interior warm paint wall material
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: 0xfef3c7, // Warm golden candlelight cream
-      roughness: 0.8,
-      side: THREE.BackSide,
-    });
-
-    // Hardwood parquet floor
+    // Cozy mahogany floor plane inside the room
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x78350f, // Rich mahogany wood
-      roughness: 0.4,
+      color: 0x78350f,
+      roughness: 0.5,
       metalness: 0.1,
     });
-
-    // Room enclosure
-    const roomGeo = new THREE.BoxGeometry(roomW, roomH, roomD);
-    const room = new THREE.Mesh(roomGeo, wallMat);
-    room.position.set(0, openingY, roomCenterZ);
-    this.interiorGroup.add(room);
-
-    // Warm Interior Floor
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomD), floorMat);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw + 4.0, 4.0), floorMat);
     floor.rotation.x = -Math.PI / 2;
-    floor.position.set(0, openingBottom - 0.02, roomCenterZ);
+    floor.position.set(0, openingBottom - 0.02, 2.2);
     this.interiorGroup.add(floor);
 
-    // Cozy interior ceiling lamp light
-    const lampLight = new THREE.PointLight(0xffedd5, 1.8, 12, 1.2);
-    lampLight.position.set(0, openingY + fh * 0.4, roomCenterZ - 0.5);
-    this.interiorGroup.add(lampLight);
-
-    // Cozy framed wall art on interior back wall
-    const artFrameMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.5 });
-    const artCanvasMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 }); // Landscape blue sky painting
-    const artFrame = new THREE.Mesh(new THREE.BoxGeometry(fw * 0.45, fh * 0.4, 0.05), artFrameMat);
-    artFrame.position.set(0, openingY + 0.3, roomCenterZ + roomD / 2 - 0.08);
-    this.interiorGroup.add(artFrame);
-
-    const artCanvas = new THREE.Mesh(new THREE.PlaneGeometry(fw * 0.4, fh * 0.35), artCanvasMat);
-    artCanvas.rotation.y = Math.PI;
-    artCanvas.position.set(0, openingY + 0.3, roomCenterZ + roomD / 2 - 0.12);
-    this.interiorGroup.add(artCanvas);
-
-    // Indoor curtain drapes flanking interior sides
+    // Curtains framing the interior edges
     const curtainMat = new THREE.MeshStandardMaterial({
-      color: 0x991b1b, // Rich cozy ruby red curtains
+      color: 0x991b1b, // Ruby red velvet curtains
       roughness: 0.7,
     });
-    const curtainW = 0.65;
+    const curtainW = 0.5;
     const leftCurtain = new THREE.Mesh(
-      new THREE.BoxGeometry(curtainW, fh * 1.05, 0.2),
+      new THREE.BoxGeometry(curtainW, fh * 0.95, 0.15),
       curtainMat
     );
-    leftCurtain.position.set(-fw / 2 + curtainW / 2 + 0.15, openingY, 0.45);
+    leftCurtain.position.set(-fw / 2 + curtainW / 2 + 0.1, openingY, 0.45);
     this.interiorGroup.add(leftCurtain);
 
     const rightCurtain = leftCurtain.clone();
-    rightCurtain.position.x = fw / 2 - curtainW / 2 - 0.15;
+    rightCurtain.position.x = fw / 2 - curtainW / 2 - 0.1;
     this.interiorGroup.add(rightCurtain);
   }
 
