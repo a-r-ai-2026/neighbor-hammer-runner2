@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { MrRogersCharacter } from './character';
 import { ArchitecturalFixture } from './windows';
 import { HazardManager } from './hazards';
@@ -26,6 +30,12 @@ export class GameEngine {
   public renderer: THREE.WebGLRenderer;
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
+
+  // Post-processing & Cinematic Visuals
+  public composer: EffectComposer;
+  public bloomPass: UnrealBloomPass;
+  private baseFov: number = 58;
+  private fovImpulse: number = 0;
 
   // Game actors & systems
   private character: MrRogersCharacter;
@@ -100,18 +110,18 @@ export class GameEngine {
       // Ignore storage errors in sandboxed iframes
     }
 
-    // 1. Scene & Atmosphere
+    // 1. Scene & Atmosphere (Cinematic Blue Sky & Fog Depth)
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x38bdf8); // Sky blue
-    this.scene.fog = new THREE.Fog(0x38bdf8, 35, 65);
+    this.scene.background = new THREE.Color(0x38bdf8);
+    this.scene.fog = new THREE.Fog(0x38bdf8, 30, 85);
 
     // 2. Camera Setup (Dynamic responsive lane perspective)
     const aspect = container.clientWidth / container.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(65, aspect, 0.1, 120);
+    this.camera = new THREE.PerspectiveCamera(65, aspect, 0.1, 140);
     this.camera.position.set(0, 8.0, 14.0);
     this.camera.lookAt(this.targetLookAt);
 
-    // 3. WebGL Renderer
+    // 3. WebGL Renderer with High-Fidelity ACESFilmic Tone Mapping
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -127,24 +137,54 @@ export class GameEngine {
     this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
     pmremGenerator.dispose();
 
-    // 5. Lighting Setup (Key Sunlight + Cool Hemisphere Fill)
-    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x15803d, 0.7);
+    // 5. Cinematic 3-Point Hollywood Lighting Setup
+    // A. Ambient & Sky Hemisphere Bounce (Warm grass ground bounce + sky blue top)
+    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x166534, 0.75);
     this.scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfffaed, 1.4);
-    dirLight.position.set(12, 22, 10);
+    // B. Golden Key Sunlight (Crisp directional sunlight with soft PCF shadow edges)
+    const dirLight = new THREE.DirectionalLight(0xfffaed, 1.85);
+    dirLight.position.set(14, 24, 12);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.radius = 2.4;
     dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 65;
-    const d = 16;
+    dirLight.shadow.camera.far = 70;
+    const d = 18;
     dirLight.shadow.camera.left = -d;
     dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d;
     dirLight.shadow.camera.bottom = -d;
-    dirLight.shadow.bias = -0.0005;
+    dirLight.shadow.bias = -0.0003;
     this.scene.add(dirLight);
+
+    // C. Cyan Rim Backlight (Creates animated film silhouette separation from behind)
+    const rimLight = new THREE.DirectionalLight(0x7dd3fc, 1.35);
+    rimLight.position.set(-10, 18, -38);
+    rimLight.target.position.set(0, 1.5, 0);
+    this.scene.add(rimLight);
+    this.scene.add(rimLight.target);
+
+    // D. Cozy Warm Interior Room Light spill through the window glass
+    const interiorPoint = new THREE.PointLight(0xfef08a, 1.2, 16);
+    interiorPoint.position.set(0, 2.5, 0.4);
+    this.scene.add(interiorPoint);
+
+    // 6. Post-Processing Pipeline (EffectComposer + Bloom + ACES Color Tone Mapping)
+    const renderPass = new RenderPass(this.scene, this.camera);
+    this.bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(container.clientWidth, container.clientHeight),
+      0.36, // Bloom strength (tasteful movie glow on sparks, lights, coins)
+      0.45, // Bloom radius
+      0.78  // Bloom threshold (prevents sky/ground blowout)
+    );
+    const outputPass = new OutputPass();
+
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(renderPass);
+    this.composer.addPass(this.bloomPass);
+    this.composer.addPass(outputPass);
 
     // 6. Subsystems
     this.environment = new SuburbanEnvironment();
@@ -187,6 +227,7 @@ export class GameEngine {
     if (isPortrait) {
       // For mobile portrait, dynamically pull camera higher up and back so lane, hazards, and house wall fit
       const fov = this.isZoomedOut ? Math.min(76, 62 + (1 - aspect) * 20) : 58;
+      this.baseFov = fov;
       this.camera.fov = fov;
 
       const halfW = (fixtureWidth / 2) * 1.35;
@@ -200,6 +241,7 @@ export class GameEngine {
     } else {
       // Landscape or Desktop: elevated arcade view
       const fov = this.isZoomedOut ? 58 : 50;
+      this.baseFov = fov;
       this.camera.fov = fov;
 
       const halfW = (fixtureWidth / 2) * 1.3;
@@ -227,6 +269,12 @@ export class GameEngine {
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     this.renderer.setSize(w, h);
+    if (this.composer) {
+      this.composer.setSize(w, h);
+    }
+    if (this.bloomPass) {
+      this.bloomPass.resolution.set(w, h);
+    }
     this.recalculateCameraFraming();
   };
 
@@ -363,6 +411,7 @@ export class GameEngine {
     this.abilities.shockwaveCooldown = this.abilities.shockwaveMaxCooldown;
     soundEngine.playShockwave();
     this.addTrauma(0.65);
+    this.addFovPunch(2.4);
     this.callbacks.onScreenShake('severe');
 
     const origin = new THREE.Vector3(this.playerX, 1.0, -2.5);
@@ -454,6 +503,13 @@ export class GameEngine {
   }
 
   /**
+   * Action-movie impact zoom / FOV pulse
+   */
+  public addFovPunch(amount: number) {
+    this.fovImpulse = Math.min(3.5, this.fovImpulse + amount);
+  }
+
+  /**
    * Main game physics and animation tick
    */
   private update = () => {
@@ -499,6 +555,7 @@ export class GameEngine {
         if (hits.length > 0) {
           soundEngine.playHammerSmash();
           this.addTrauma(0.2);
+          this.addFovPunch(1.3);
           hits.forEach((p) => {
             this.particleSystem.emitSmashExplosion(new THREE.Vector3(p.x, p.y, p.z));
             this.combo++;
@@ -550,14 +607,15 @@ export class GameEngine {
       this.checkLevelCompletion();
     }
 
-    // 7. Particle system update
+    // 7. Environment & Particle system update
+    this.environment.update(delta);
     this.particleSystem.update(delta);
 
     // 8. Dynamic Camera Tracking & Screen Shake
     this.updateCamera(delta);
 
-    // 9. Render Scene
-    this.renderer.render(this.scene, this.camera);
+    // 9. Post-Processed Cinematic Render Pass
+    this.composer.render();
 
     this.animationFrameId = requestAnimationFrame(this.update);
   };
@@ -573,6 +631,7 @@ export class GameEngine {
       soundEngine.playShieldBlock();
       this.particleSystem.emitSmashExplosion(new THREE.Vector3(projectile.x, 1.5, 0), 12);
       this.addTrauma(0.3);
+      this.addFovPunch(1.5);
       this.callbacks.onScreenShake('mild');
       return;
     }
@@ -588,11 +647,13 @@ export class GameEngine {
     if (this.glassHits === 1) {
       soundEngine.playGlassHit(1);
       this.addTrauma(0.5);
+      this.addFovPunch(1.8);
       this.callbacks.onScreenShake('mild');
       this.callbacks.onGlassDamage(1, 'Hairline Fracture');
     } else if (this.glassHits === 2) {
       soundEngine.playGlassHit(2);
       this.addTrauma(0.8);
+      this.addFovPunch(2.4);
       this.callbacks.onScreenShake('severe');
       this.callbacks.onGlassDamage(2, 'Severe Spiderweb');
     } else if (this.glassHits >= 3) {
@@ -600,6 +661,7 @@ export class GameEngine {
       soundEngine.playGlassShatter();
       soundEngine.stopBgm();
       this.addTrauma(1.0);
+      this.addFovPunch(3.2);
       this.callbacks.onScreenShake('severe');
       this.callbacks.onGlassDamage(3, 'Shattered Glass');
       this.particleSystem.emitGlassShatter(0, this.levelConfig.fixture.height, this.levelConfig.fixture.width);
@@ -660,12 +722,27 @@ export class GameEngine {
   }
 
   /**
-   * Camera following and smooth trauma shake
+   * Camera following, cinematic breathing sway, dynamic FOV pulse, and smooth trauma shake
    */
   private updateCamera(delta: number) {
     // Subtle lateral camera follow behind Mr Rogers
     const camTargetX = this.playerX * 0.35;
     this.camera.position.x = THREE.MathUtils.damp(this.camera.position.x, camTargetX, 8, delta);
+
+    // Dynamic FOV impulse response (impact zooms)
+    if (this.fovImpulse > 0.01) {
+      this.fovImpulse = THREE.MathUtils.damp(this.fovImpulse, 0, 7, delta);
+      this.camera.fov = this.baseFov - this.fovImpulse;
+      this.camera.updateProjectionMatrix();
+    } else if (Math.abs(this.camera.fov - this.baseFov) > 0.01) {
+      this.camera.fov = this.baseFov;
+      this.camera.updateProjectionMatrix();
+    }
+
+    // Handheld cinematic camera breathing sway
+    const elapsed = this.clock.getElapsedTime();
+    const swayX = Math.sin(elapsed * 0.95) * 0.04;
+    const swayY = Math.cos(elapsed * 0.72) * 0.03;
 
     // Apply Screen Shake Trauma
     if (this.trauma > 0) {
@@ -683,6 +760,9 @@ export class GameEngine {
       this.camera.position.y = THREE.MathUtils.damp(this.camera.position.y, this.targetCameraPos.y, 8, delta);
       this.camera.position.z = THREE.MathUtils.damp(this.camera.position.z, this.targetCameraPos.z, 8, delta);
     }
+
+    this.camera.position.x += swayX;
+    this.camera.position.y += swayY;
 
     this.camera.lookAt(this.playerX * 0.15, this.targetLookAt.y, this.targetLookAt.z);
   }
@@ -707,7 +787,8 @@ export class GameEngine {
     window.removeEventListener('resize', this.onWindowResize);
     this.houseFacade.dispose();
     this.hazardManager.clearAll();
-    this.particleSystem.clearAll();
+    this.particleSystem.dispose();
+    this.composer.dispose();
     if (this.renderer.domElement && this.renderer.domElement.parentElement) {
       this.renderer.domElement.parentElement.removeChild(this.renderer.domElement);
     }

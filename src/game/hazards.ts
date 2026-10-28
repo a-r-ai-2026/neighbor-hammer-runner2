@@ -58,30 +58,33 @@ export class HazardManager {
       clearcoatRoughness: 0.12,
     });
 
-    // Baseball
-    this.baseballGeo = new THREE.SphereGeometry(0.38, 16, 16);
+    // Baseball with authentic red curved seams and stitches
+    this.baseballGeo = new THREE.SphereGeometry(0.38, 28, 24);
     this.baseballMat = new THREE.MeshStandardMaterial({
-      color: 0xfef08a,
-      roughness: 0.6,
-      metalness: 0.0,
+      map: this.generateBaseballTexture(),
+      roughness: 0.55,
+      metalness: 0.05,
     });
 
-    // Bowling Ball
-    this.bowlingBallGeo = new THREE.SphereGeometry(0.7, 20, 20);
-    this.bowlingBallMat = new THREE.MeshStandardMaterial({
-      color: 0x18181b,
-      roughness: 0.15,
-      metalness: 0.8,
+    // Cinematic Bowling Ball with deep cosmic marble pearlescent sheen and 3 finger holes
+    this.bowlingBallGeo = new THREE.SphereGeometry(0.7, 32, 28);
+    this.bowlingBallMat = new THREE.MeshPhysicalMaterial({
+      map: this.generateBowlingBallTexture(),
+      roughness: 0.12,
+      metalness: 0.1,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.06,
     });
 
-    // Collectible Coin
-    this.coinGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.08, 16);
+    // High-Gloss 24K Embossed Collectible Coin
+    this.coinGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.08, 24);
     this.coinMat = new THREE.MeshStandardMaterial({
-      color: 0xf59e0b,
+      map: this.generateCoinTexture(),
+      color: 0xffd700,
       metalness: 0.95,
-      roughness: 0.2,
+      roughness: 0.18,
       emissive: 0xd97706,
-      emissiveIntensity: 0.3,
+      emissiveIntensity: 0.35,
     });
   }
 
@@ -184,6 +187,165 @@ export class HazardManager {
     golfBumpMap.wrapT = THREE.ClampToEdgeWrapping;
 
     return { golfMap, golfBumpMap };
+  }
+
+  /**
+   * Authentic baseball leather texture with red curved seams and angled stitches
+   */
+  private generateBaseballTexture(): THREE.CanvasTexture {
+    const width = 512;
+    const height = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Creamy white leather
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, width, height);
+
+    // Subtle leather grain noise
+    ctx.fillStyle = 'rgba(203, 213, 225, 0.25)';
+    for (let i = 0; i < 400; i++) {
+      ctx.fillRect(Math.random() * width, Math.random() * height, 2, 2);
+    }
+
+    // Red baseball seams
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 3;
+
+    // Draw 2 curved seam paths
+    const drawSeam = (offsetY: number, inverted: boolean) => {
+      ctx.beginPath();
+      for (let x = 0; x <= width; x += 4) {
+        const angle = (x / width) * Math.PI * 2;
+        const y = offsetY + Math.sin(angle) * (inverted ? -45 : 45);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Individual angled stitches along the seam
+      ctx.strokeStyle = '#b91c1c';
+      ctx.lineWidth = 1.5;
+      for (let x = 8; x < width; x += 14) {
+        const angle = (x / width) * Math.PI * 2;
+        const y = offsetY + Math.sin(angle) * (inverted ? -45 : 45);
+        ctx.beginPath();
+        ctx.moveTo(x - 3, y - 5);
+        ctx.lineTo(x + 3, y + 5);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 3;
+    };
+
+    drawSeam(height * 0.35, false);
+    drawSeam(height * 0.65, true);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    return texture;
+  }
+
+  /**
+   * Deep cosmic marble bowling ball texture with 3 drilled finger holes
+   */
+  private generateBowlingBallTexture(): THREE.CanvasTexture {
+    const width = 512;
+    const height = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Deep midnight base
+    const grad = ctx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, '#090d16');
+    grad.addColorStop(0.3, '#1e1b4b');
+    grad.addColorStop(0.6, '#172554');
+    grad.addColorStop(1, '#020617');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Swirling pearlescent ribbons
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+    ctx.lineWidth = 14;
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath();
+      ctx.arc(width * 0.5 + i * 20, height * 0.5 - i * 15, 60 + i * 25, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 3 drilled black finger holes
+    const drawHole = (cx: number, cy: number, r: number) => {
+      // Bevel rim
+      ctx.fillStyle = '#475569';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Deep dark hole cavity
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    drawHole(width * 0.25, height * 0.45, 9);
+    drawHole(width * 0.25 + 18, height * 0.45 - 20, 7);
+    drawHole(width * 0.25 - 18, height * 0.45 - 20, 7);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    return texture;
+  }
+
+  /**
+   * 24K Gold Coin texture with stamped star and coin edge ridges
+   */
+  private generateCoinTexture(): THREE.CanvasTexture {
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Radial gold luster
+    const grad = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, '#fef08a');
+    grad.addColorStop(0.5, '#f59e0b');
+    grad.addColorStop(0.9, '#b45309');
+    grad.addColorStop(1, '#78350f');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    // Circular coin border ridge
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size * 0.42, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Inner rim dots
+    ctx.fillStyle = '#fef3c7';
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
+      const x = size / 2 + Math.cos(a) * (size * 0.36);
+      const y = size / 2 + Math.sin(a) * (size * 0.36);
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Embossed Star emblem in center
+    ctx.fillStyle = '#fffbeb';
+    ctx.font = 'bold 52px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('★', size / 2, size / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
   }
 
   /**

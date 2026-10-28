@@ -27,11 +27,18 @@ export class ParticleSystem {
   private glassShardMat: THREE.MeshPhysicalMaterial;
   private goldSparkleMat: THREE.MeshBasicMaterial;
 
+  // Ambient Sun Motes for Hollywood Golden-Hour Atmosphere
+  private dustPoints: THREE.Points | null = null;
+  private dustPositions: Float32Array | null = null;
+  private dustOffsets: Float32Array | null = null;
+  private readonly dustCount = 80;
+
   constructor(scene: THREE.Scene) {
     this.scene = scene;
 
-    this.sparkGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
-    this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+    this.sparkGeo = new THREE.BoxGeometry(0.09, 0.09, 0.09);
+    // Emissive bright orange/gold spark that triggers bloom pass
+    this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
 
     this.stoneMat = new THREE.MeshStandardMaterial({
       color: 0x78716c,
@@ -60,7 +67,62 @@ export class ParticleSystem {
     });
 
     this.coinSparkleGeo = new THREE.TetrahedronGeometry(0.12);
-    this.goldSparkleMat = new THREE.MeshBasicMaterial({ color: 0xfde047 });
+    this.goldSparkleMat = new THREE.MeshBasicMaterial({ color: 0xffdf20 });
+
+    this.initCinematicSunMotes();
+  }
+
+  /**
+   * Floating sun dust motes that catch golden sunlight rays
+   */
+  private initCinematicSunMotes() {
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(this.dustCount * 3);
+    const offsets = new Float32Array(this.dustCount * 3);
+
+    for (let i = 0; i < this.dustCount; i++) {
+      const i3 = i * 3;
+      // Bounding box in front of house: X: [-9, 9], Y: [0.6, 6.5], Z: [-4, 12]
+      positions[i3] = (Math.random() - 0.5) * 18;
+      positions[i3 + 1] = 0.6 + Math.random() * 6.0;
+      positions[i3 + 2] = -4 + Math.random() * 16;
+
+      offsets[i3] = Math.random() * Math.PI * 2;
+      offsets[i3 + 1] = Math.random() * Math.PI * 2;
+      offsets[i3 + 2] = 0.3 + Math.random() * 0.7; // Speed variation
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    // Circular soft glowing particle canvas texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+      grad.addColorStop(0, 'rgba(255, 240, 180, 0.95)');
+      grad.addColorStop(0.3, 'rgba(255, 215, 120, 0.6)');
+      grad.addColorStop(0.8, 'rgba(255, 180, 50, 0.15)');
+      grad.addColorStop(1, 'rgba(255, 180, 50, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 32, 32);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+
+    const mat = new THREE.PointsMaterial({
+      size: 0.22,
+      map: texture,
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    this.dustPoints = new THREE.Points(geo, mat);
+    this.dustPositions = positions;
+    this.dustOffsets = offsets;
+    this.scene.add(this.dustPoints);
   }
 
   /**
@@ -186,6 +248,31 @@ export class ParticleSystem {
   public update(delta: number) {
     const gravity = -18.0;
 
+    // 1. Drift Ambient Sun Dust Motes
+    if (this.dustPoints && this.dustPositions && this.dustOffsets) {
+      const pos = this.dustPositions;
+      const off = this.dustOffsets;
+      for (let i = 0; i < this.dustCount; i++) {
+        const i3 = i * 3;
+        off[i3] += delta * off[i3 + 2] * 0.8;
+        off[i3 + 1] += delta * off[i3 + 2] * 0.5;
+
+        // Gentle wandering
+        pos[i3] += Math.sin(off[i3]) * delta * 0.35;
+        pos[i3 + 1] += Math.cos(off[i3 + 1]) * delta * 0.25;
+        pos[i3 + 2] -= delta * 0.45; // Gentle float down lane
+
+        // Wrap around bounds
+        if (pos[i3 + 2] < -5) pos[i3 + 2] = 12;
+        if (pos[i3] > 9) pos[i3] = -9;
+        if (pos[i3] < -9) pos[i3] = 9;
+        if (pos[i3 + 1] > 6.5) pos[i3 + 1] = 0.6;
+        if (pos[i3 + 1] < 0.6) pos[i3 + 1] = 6.5;
+      }
+      this.dustPoints.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // 2. Dynamic Physics Particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life += delta;
@@ -222,5 +309,19 @@ export class ParticleSystem {
   public clearAll() {
     this.particles.forEach((p) => this.scene.remove(p.mesh));
     this.particles = [];
+  }
+
+  public dispose() {
+    this.clearAll();
+    if (this.dustPoints) {
+      this.scene.remove(this.dustPoints);
+      this.dustPoints.geometry.dispose();
+      if (Array.isArray(this.dustPoints.material)) {
+        this.dustPoints.material.forEach((m) => m.dispose());
+      } else {
+        this.dustPoints.material.dispose();
+      }
+      this.dustPoints = null;
+    }
   }
 }

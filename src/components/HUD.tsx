@@ -172,6 +172,16 @@ export const HUD: React.FC<HUDProps> = ({
       onPointerMove={handleScreenPointerMove}
       className="absolute inset-0 pointer-events-auto cursor-crosshair flex flex-col justify-between p-1.5 sm:p-4 pt-[max(0.5rem,env(safe-area-inset-top,0.5rem))] pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))] pl-[max(0.5rem,env(safe-area-inset-left,0.5rem))] pr-[max(0.5rem,env(safe-area-inset-right,0.5rem))] z-20 select-none overflow-hidden touch-none"
     >
+      {/* Cinematic Slow-Mo Bullet-Time Vignette */}
+      {isTimeSlowActive && (
+        <div className="fixed inset-0 pointer-events-none z-10 border-4 sm:border-8 border-cyan-400/40 bg-gradient-to-b from-cyan-950/20 via-transparent to-cyan-950/20 animate-pulse">
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-cyan-400 text-slate-950 font-black text-[11px] sm:text-xs uppercase tracking-widest shadow-xl flex items-center gap-1.5 backdrop-blur-md border border-cyan-200">
+            <Hourglass className="w-3.5 h-3.5 animate-spin text-slate-950" />
+            <span>Bullet-Time Slow-Mo</span>
+          </div>
+        </div>
+      )}
+
       {/* Visual Tap Shockwaves */}
       {ripples.map((r) => (
         <div
